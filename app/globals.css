@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #FAFAF8;
+  color: #0A0A0A;
+}
+h1, h2, h3, .font-display { font-family: var(--font-space-grotesk), sans-serif; }
+.font-tabular, .tabular-nums { font-family: var(--font-plex-mono), monospace; font-variant-numeric: tabular-nums; }
+
+.badge-success { @apply inline-flex items-center gap-1.5 text-xs font-medium text-ok px-2 py-0.5 border border-ok/30 bg-ok/5; }
+.badge-warning { @apply inline-flex items-center gap-1.5 text-xs font-medium text-warn px-2 py-0.5 border border-warn/30 bg-warn/5; }
+.badge-danger { @apply inline-flex items-center gap-1.5 text-xs font-medium text-signal px-2 py-0.5 border border-signal/30 bg-signal/5; }
+.badge-info { @apply inline-flex items-center gap-1.5 text-xs font-medium text-slate px-2 py-0.5 border border-line bg-mist; }
+
+.card { @apply bg-paper border border-line p-6; }
+.btn { @apply px-4 py-2 font-medium transition-colors cursor-pointer text-sm; }
+.btn-primary { @apply btn bg-ink text-paper hover:bg-signal; }
+.btn-secondary { @apply btn bg-paper text-ink border border-line hover:border-ink; }
+.btn-sm { @apply px-3 py-1.5 text-xs; }

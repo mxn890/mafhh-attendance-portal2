@@ -1,0 +1,208 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+const SelfieCapture = dynamic(() => import('./components/SelfieCapture'), { ssr: false });
+
+function fmtTime(iso) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+export default function HomePage() {
+  const router = useRouter();
+  const [me, setMe] = useState(null);
+  const [error, setError] = useState(null);
+  const [mode, setMode] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('checking'); // 'ok' | 'denied' | 'checking'
+  const [justResumed, setJustResumed] = useState(false);
+
+  async function loadMe() {
+    try {
+      const res = await fetch('/api/me');
+      if (res.status === 401) return router.push('/login');
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to load.');
+      if (body.mustChangePassword || !body.isEnrolled) return router.push('/setup');
+      setMe(body);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => { loadMe(); }, []);
+
+  // Checks location permission on load and whenever the tab regains
+  // focus — surfaces it on screen rather than letting tracking silently
+  // fail if GPS access was turned off while the page was backgrounded.
+  useEffect(() => {
+    function checkPermission() {
+      if (!navigator.permissions) { setLocationStatus('ok'); return; } // older browsers — can't check, assume fine
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        setLocationStatus(result.state === 'denied' ? 'denied' : 'ok');
+      }).catch(() => setLocationStatus('ok'));
+    }
+    checkPermission();
+
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        checkPermission();
+        if (me?.today?.checkedIn && !me?.today?.checkedOut) {
+          setJustResumed(true);
+          setTimeout(() => setJustResumed(false), 4000);
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [me?.today?.checkedIn, me?.today?.checkedOut]);
+
+  // While on duty (checked in, not yet checked out), ping location every
+  // 3 minutes — only while this page/tab is open, per the web-based
+  // design (see DEV NOTE: battery/data usage). Stops automatically once
+  // checked out, or if the page is closed.
+  useEffect(() => {
+    if (!me?.today?.checkedIn || me?.today?.checkedOut) return;
+    const sendPing = () => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          fetch('/api/location-ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          }).catch(() => {});
+        },
+        () => {}, // silent — a missed ping isn't worth interrupting the person over
+        { enableHighAccuracy: false, timeout: 15000 }
+      );
+    };
+    sendPing(); // one right away, then on the interval
+    const interval = setInterval(sendPing, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [me?.today?.checkedIn, me?.today?.checkedOut]);
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  }
+
+  function getLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error('Location is not supported on this device.'));
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => reject(new Error('Please allow location access to mark attendance.')),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  }
+
+  async function handleCapture(dataUrl, descriptor) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { lat, lng } = await getLocation();
+      const endpoint = mode === 'checkin' ? '/api/checkin' : '/api/checkout';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: dataUrl, faceDescriptor: descriptor, lat, lng }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not record attendance.');
+      setMode(null);
+      await loadMe();
+    } catch (err) {
+      setError(err.message);
+    }
+    setSubmitting(false);
+  }
+
+  if (error && !me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-signal text-sm">{error}</p></div>;
+  if (!me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-slate text-sm">Loading…</p></div>;
+
+  return (
+    <div className="min-h-screen bg-mist">
+      <div className="bg-ink px-4 py-4 flex items-center justify-between">
+        <div>
+          <p className="font-display font-semibold text-paper text-sm">{me.name}</p>
+          <p className="font-tabular text-xs text-slate-light">{me.employeeId} · {me.department}</p>
+        </div>
+        <button onClick={handleLogout} className="text-xs text-slate-light hover:text-paper">Sign out</button>
+      </div>
+
+      <main className="max-w-sm mx-auto px-4 py-8">
+        {locationStatus === 'denied' && (
+          <div className="bg-signal-light border border-signal/30 px-4 py-3 mb-4">
+            <p className="text-sm text-signal font-medium">Location is turned off</p>
+            <p className="text-xs text-signal mt-1">Turn on location access in your phone/browser settings — it's required to check in or out.</p>
+          </div>
+        )}
+        {justResumed && (
+          <div className="bg-ok/10 border border-ok/30 px-4 py-2.5 mb-4">
+            <p className="text-xs text-ok">Welcome back — resuming location sharing.</p>
+          </div>
+        )}
+
+        {!mode && (
+          <div className="bg-paper border border-line p-6">
+            <p className="text-xs text-slate mb-1">Shift</p>
+            <p className="font-tabular text-sm text-ink mb-4">{me.shift_timing || '—'}</p>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-line">
+                <span className="text-sm text-slate">Check-in</span>
+                <span className="font-tabular text-sm text-ink">{fmtTime(me.today.checkInTime) || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-line">
+                <span className="text-sm text-slate">Check-out</span>
+                <span className="font-tabular text-sm text-ink">{fmtTime(me.today.checkOutTime) || '—'}</span>
+              </div>
+              {me.today.status && (
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-slate">Status</span>
+                  <span className={me.today.status === 'OnTime' ? 'badge-success' : me.today.status === 'Late' ? 'badge-warning' : 'badge-danger'}>
+                    {me.today.status}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 space-y-2">
+              {!me.today.checkedIn && <button onClick={() => setMode('checkin')} disabled={locationStatus === 'denied'} className="btn-primary w-full disabled:opacity-50">Check in</button>}
+              {me.today.checkedIn && !me.today.checkedOut && (
+                <>
+                  <button onClick={() => setMode('checkout')} disabled={locationStatus === 'denied'} className="btn-primary w-full disabled:opacity-50">Check out</button>
+                  <p className="text-xs text-slate-light text-center mt-2">
+                    <span className="inline-block w-1.5 h-1.5 bg-ok rounded-full mr-1.5" />
+                    Location sharing active while on duty
+                  </p>
+                </>
+              )}
+              {me.today.checkedIn && me.today.checkedOut && <p className="text-center text-sm text-ok">Attendance complete for today.</p>}
+            </div>
+          </div>
+        )}
+
+        {mode && (
+          <div className="bg-paper border border-line p-6">
+            <p className="font-display font-semibold text-ink mb-4 text-center">{mode === 'checkin' ? 'Check in' : 'Check out'}</p>
+            <SelfieCapture onCapture={handleCapture} buttonLabel={submitting ? 'Submitting…' : (mode === 'checkin' ? 'Check in' : 'Check out')} />
+            {error && <p className="text-sm text-signal text-center mt-3">{error}</p>}
+            <button onClick={() => setMode(null)} className="btn-secondary w-full mt-3">Cancel</button>
+          </div>
+        )}
+
+        {!mode && (
+          <button onClick={() => router.push('/history')} className="btn-secondary w-full mt-4">
+            View my attendance history →
+          </button>
+        )}
+      </main>
+    </div>
+  );
+}
