@@ -12,13 +12,14 @@ function fmtTime(iso) {
 const STATUS_BADGE = { OnTime: 'badge-success', Late: 'badge-warning', HalfDay: 'badge-warning', Absent: 'badge-danger', Leave: 'badge-info' };
 const LOCATION_LABEL = { office: 'Office', airport: 'Airport', out_of_range: 'Out of range', not_configured: 'Not set up' };
 
-function LocationCell({ label, distance }) {
+function LocationCell({ label, distance, assignedLocation }) {
   if (!label) return <span className="text-slate-light text-xs">—</span>;
   const withinRadius = label === 'office' || label === 'airport';
+  const isAlert = label === 'out_of_range' && assignedLocation !== 'either'; // "either" employees can be anywhere — never an alert for them
   return (
     <div className="text-xs">
-      <span className={withinRadius ? 'text-ok font-medium' : label === 'out_of_range' ? 'text-signal font-medium' : 'text-slate'}>
-        {withinRadius ? '✓ ' : label === 'out_of_range' ? '✗ ' : ''}{LOCATION_LABEL[label] || label}
+      <span className={withinRadius ? 'text-ok font-medium' : isAlert ? 'text-signal font-medium' : 'text-slate'}>
+        {withinRadius ? '✓ ' : isAlert ? '✗ ' : ''}{LOCATION_LABEL[label] || label}
       </span>
       {distance != null && <span className="text-slate-light block">{distance}m away</span>}
     </div>
@@ -192,12 +193,12 @@ export default function ManagerPage() {
                     {fmtTime(r.checkInTime)}
                     {r.checkInFaceMatch === 'needs_review' && <span className="ml-1 text-warn">●</span>}
                   </td>
-                  <td className="px-4 py-3"><LocationCell label={r.checkInLocation} distance={r.checkInDistance} /></td>
+                  <td className="px-4 py-3"><LocationCell label={r.checkInLocation} distance={r.checkInDistance} assignedLocation={r.assignedLocation} /></td>
                   <td className="px-4 py-3 font-tabular text-ink">
                     {fmtTime(r.checkOutTime)}
                     {r.checkOutFaceMatch === 'needs_review' && <span className="ml-1 text-warn">●</span>}
                   </td>
-                  <td className="px-4 py-3"><LocationCell label={r.checkOutLocation} distance={r.checkOutDistance} /></td>
+                  <td className="px-4 py-3"><LocationCell label={r.checkOutLocation} distance={r.checkOutDistance} assignedLocation={r.assignedLocation} /></td>
                   <td className="px-4 py-3"><span className={STATUS_BADGE[r.status] || 'badge-info'}>{r.status}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">

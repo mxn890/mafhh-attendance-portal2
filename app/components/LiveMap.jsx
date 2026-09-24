@@ -4,22 +4,32 @@ import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Leaflet's default marker icons reference image files by relative path,
-// which breaks under Next.js's bundler — point them at reliable CDN URLs
-// instead of trying to bundle the package's own image assets.
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
-
 function timeAgo(iso) {
   if (!iso) return 'never';
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   return `${Math.floor(mins / 60)}h ago`;
+}
+
+// A small labeled pin — the employee ID sits right on the marker, so
+// anyone can see who's who on the map without tapping each pin. Built as
+// a DivIcon (plain HTML/CSS) rather than an image, so it scales to any
+// number of employees without needing custom marker images per person.
+function labeledIcon(employeeId, isLive) {
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="display:flex;flex-direction:column;align-items:center;transform:translateY(-100%);">
+        <div style="background:#0A0A0A;color:#FFFFFF;font-family:monospace;font-size:10px;font-weight:600;padding:2px 6px;white-space:nowrap;border:1px solid ${isLive ? '#1A7A4C' : '#C8102E'};">
+          ${employeeId}
+        </div>
+        <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${isLive ? '#1A7A4C' : '#C8102E'};"></div>
+      </div>
+    `,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
 }
 
 export default function LiveMap({ points, office, airport }) {
@@ -42,9 +52,9 @@ export default function LiveMap({ points, office, airport }) {
         </Circle>
       )}
       {points.map((p) => (
-        <Marker key={p.employeeId} position={[p.lat, p.lng]}>
+        <Marker key={p.employeeId} position={[p.lat, p.lng]} icon={labeledIcon(p.employeeId, p.live)}>
           <Popup>
-            <strong>{p.name}</strong><br />
+            <strong>{p.name}</strong> ({p.employeeId})<br />
             {p.department}<br />
             {p.live ? 'Live' : 'From check-in'} · updated {timeAgo(p.lastUpdate)}
           </Popup>
