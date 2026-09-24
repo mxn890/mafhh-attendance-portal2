@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import ManagerNav from '../../components/ManagerNav';
 
 const LiveMap = dynamic(() => import('../../components/LiveMap'), { ssr: false, loading: () => <p className="text-sm text-slate p-6">Loading map…</p> });
 
@@ -28,15 +29,10 @@ export default function LiveMapPage() {
 
   return (
     <div className="min-h-screen bg-mist">
-      <div className="bg-ink px-4 py-4 flex items-center justify-between">
-        <div>
-          <span className="inline-block w-2 h-5 bg-signal mr-2 align-middle" />
-          <span className="font-display font-semibold text-paper align-middle">Live locations</span>
-        </div>
-        <button onClick={() => router.push('/manager')} className="text-xs text-slate-light hover:text-paper">← Back to dashboard</button>
-      </div>
+      <ManagerNav />
 
       <main className="container mx-auto px-4 py-8">
+        <h1 className="font-display text-2xl font-semibold text-ink mb-1">Live locations</h1>
         {error && <p className="text-signal text-sm">{error}</p>}
         {!data && !error && <p className="text-slate text-sm">Loading…</p>}
         {data && (

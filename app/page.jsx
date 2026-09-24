@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import EmployeeNav from './components/EmployeeNav';
 
 const SelfieCapture = dynamic(() => import('./components/SelfieCapture'), { ssr: false });
+
+const LOCATION_LABEL = { office: 'Office', airport: 'Airport', out_of_range: 'Out of range', not_configured: 'Location not set up yet' };
 
 function fmtTime(iso) {
   if (!iso) return null;
@@ -17,8 +20,9 @@ export default function HomePage() {
   const [error, setError] = useState(null);
   const [mode, setMode] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [locationStatus, setLocationStatus] = useState('checking'); // 'ok' | 'denied' | 'checking'
+  const [locationStatus, setLocationStatus] = useState('checking');
   const [justResumed, setJustResumed] = useState(false);
+  const [liveLocation, setLiveLocation] = useState(null);
 
   async function loadMe() {
     try {
@@ -35,12 +39,9 @@ export default function HomePage() {
 
   useEffect(() => { loadMe(); }, []);
 
-  // Checks location permission on load and whenever the tab regains
-  // focus — surfaces it on screen rather than letting tracking silently
-  // fail if GPS access was turned off while the page was backgrounded.
   useEffect(() => {
     function checkPermission() {
-      if (!navigator.permissions) { setLocationStatus('ok'); return; } // older browsers — can't check, assume fine
+      if (!navigator.permissions) { setLocationStatus('ok'); return; }
       navigator.permissions.query({ name: 'geolocation' }).then((result) => {
         setLocationStatus(result.state === 'denied' ? 'denied' : 'ok');
       }).catch(() => setLocationStatus('ok'));
@@ -60,10 +61,26 @@ export default function HomePage() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [me?.today?.checkedIn, me?.today?.checkedOut]);
 
-  // While on duty (checked in, not yet checked out), ping location every
-  // 3 minutes — only while this page/tab is open, per the web-based
-  // design (see DEV NOTE: battery/data usage). Stops automatically once
-  // checked out, or if the page is closed.
+  useEffect(() => {
+    if (locationStatus === 'denied' || !me) return;
+    function checkNow() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          fetch(`/api/my-location-status?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
+            .then((r) => r.json())
+            .then((body) => { if (!body.error) setLiveLocation(body); })
+            .catch(() => setLiveLocation('error'));
+        },
+        () => setLiveLocation('error'),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+    checkNow();
+    const interval = setInterval(checkNow, 30000);
+    return () => clearInterval(interval);
+  }, [locationStatus, me]);
+
   useEffect(() => {
     if (!me?.today?.checkedIn || me?.today?.checkedOut) return;
     const sendPing = () => {
@@ -76,19 +93,14 @@ export default function HomePage() {
             body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
           }).catch(() => {});
         },
-        () => {}, // silent — a missed ping isn't worth interrupting the person over
+        () => {},
         { enableHighAccuracy: false, timeout: 15000 }
       );
     };
-    sendPing(); // one right away, then on the interval
+    sendPing();
     const interval = setInterval(sendPing, 3 * 60 * 1000);
     return () => clearInterval(interval);
   }, [me?.today?.checkedIn, me?.today?.checkedOut]);
-
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-  }
 
   function getLocation() {
     return new Promise((resolve, reject) => {
@@ -125,15 +137,11 @@ export default function HomePage() {
   if (error && !me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-signal text-sm">{error}</p></div>;
   if (!me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-slate text-sm">Loading…</p></div>;
 
+  const withinRadius = liveLocation && liveLocation !== 'error' && (liveLocation.label === 'office' || liveLocation.label === 'airport');
+
   return (
     <div className="min-h-screen bg-mist">
-      <div className="bg-ink px-4 py-4 flex items-center justify-between">
-        <div>
-          <p className="font-display font-semibold text-paper text-sm">{me.name}</p>
-          <p className="font-tabular text-xs text-slate-light">{me.employeeId} · {me.department}</p>
-        </div>
-        <button onClick={handleLogout} className="text-xs text-slate-light hover:text-paper">Sign out</button>
-      </div>
+      <EmployeeNav employee={me} />
 
       <main className="max-w-sm mx-auto px-4 py-8">
         {locationStatus === 'denied' && (
@@ -145,6 +153,21 @@ export default function HomePage() {
         {justResumed && (
           <div className="bg-ok/10 border border-ok/30 px-4 py-2.5 mb-4">
             <p className="text-xs text-ok">Welcome back — resuming location sharing.</p>
+          </div>
+        )}
+
+        {!mode && locationStatus !== 'denied' && (
+          <div className={`px-4 py-3 mb-4 border ${withinRadius ? 'bg-ok/5 border-ok/30' : liveLocation === 'error' ? 'bg-mist border-line' : 'bg-signal-light border-signal/30'}`}>
+            <p className="text-xs text-slate mb-0.5">Your location right now</p>
+            {!liveLocation && <p className="text-sm text-slate-light">Checking…</p>}
+            {liveLocation === 'error' && <p className="text-sm text-slate-light">Couldn't get your location.</p>}
+            {liveLocation && liveLocation !== 'error' && (
+              <p className={`text-sm font-medium ${withinRadius ? 'text-ok' : 'text-signal'}`}>
+                {withinRadius ? '✓ ' : liveLocation.label === 'out_of_range' ? '✗ ' : ''}
+                {LOCATION_LABEL[liveLocation.label] || liveLocation.label}
+                {liveLocation.distanceMeters != null && <span className="text-slate-light font-normal"> · {liveLocation.distanceMeters}m away</span>}
+              </p>
+            )}
           </div>
         )}
 
@@ -165,7 +188,7 @@ export default function HomePage() {
               {me.today.status && (
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm text-slate">Status</span>
-                  <span className={me.today.status === 'OnTime' ? 'badge-success' : me.today.status === 'Late' ? 'badge-warning' : 'badge-danger'}>
+                  <span className={me.today.status === 'OnTime' ? 'badge-success' : me.today.status === 'Leave' ? 'badge-info' : 'badge-warning'}>
                     {me.today.status}
                   </span>
                 </div>
@@ -195,12 +218,6 @@ export default function HomePage() {
             {error && <p className="text-sm text-signal text-center mt-3">{error}</p>}
             <button onClick={() => setMode(null)} className="btn-secondary w-full mt-3">Cancel</button>
           </div>
-        )}
-
-        {!mode && (
-          <button onClick={() => router.push('/history')} className="btn-secondary w-full mt-4">
-            View my attendance history →
-          </button>
         )}
       </main>
     </div>

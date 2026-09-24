@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ManagerNav from '../components/ManagerNav';
 
 function fmtTime(iso) {
   if (!iso) return '—';
@@ -10,6 +11,19 @@ function fmtTime(iso) {
 
 const STATUS_BADGE = { OnTime: 'badge-success', Late: 'badge-warning', HalfDay: 'badge-warning', Absent: 'badge-danger', Leave: 'badge-info' };
 const LOCATION_LABEL = { office: 'Office', airport: 'Airport', out_of_range: 'Out of range', not_configured: 'Not set up' };
+
+function LocationCell({ label, distance }) {
+  if (!label) return <span className="text-slate-light text-xs">—</span>;
+  const withinRadius = label === 'office' || label === 'airport';
+  return (
+    <div className="text-xs">
+      <span className={withinRadius ? 'text-ok font-medium' : label === 'out_of_range' ? 'text-signal font-medium' : 'text-slate'}>
+        {withinRadius ? '✓ ' : label === 'out_of_range' ? '✗ ' : ''}{LOCATION_LABEL[label] || label}
+      </span>
+      {distance != null && <span className="text-slate-light block">{distance}m away</span>}
+    </div>
+  );
+}
 
 export default function ManagerPage() {
   const router = useRouter();
@@ -107,21 +121,12 @@ export default function ManagerPage() {
 
   return (
     <div className="min-h-screen bg-mist">
-      <div className="bg-ink px-4 py-4 flex items-center justify-between">
-        <div>
-          <span className="inline-block w-2 h-5 bg-signal mr-2 align-middle" />
-          <span className="font-display font-semibold text-paper align-middle">Attendance — Manager</span>
-        </div>
-        <button onClick={handleLogout} className="text-xs text-slate-light hover:text-paper">Sign out</button>
-      </div>
+      <ManagerNav />
 
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex items-end justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-semibold text-ink">Today — {data.date}</h1>
-            <p className="text-sm text-slate">{data.rows.length} employees · {needsReview.length} need photo review</p>
-          </div>
-          <button onClick={() => router.push('/manager/map')} className="btn-secondary btn-sm">Live map →</button>
+        <div className="mb-6">
+          <h1 className="font-display text-2xl font-semibold text-ink">Today — {data.date}</h1>
+          <p className="text-sm text-slate">{data.rows.length} employees · {needsReview.length} need photo review</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-line mb-6">
@@ -157,7 +162,9 @@ export default function ManagerPage() {
                 <th className="px-4 py-2.5 text-left font-medium text-slate">Department</th>
                 <th className="px-4 py-2.5 text-left font-medium text-slate">Assigned to</th>
                 <th className="px-4 py-2.5 text-left font-medium text-slate">Check-in</th>
+                <th className="px-4 py-2.5 text-left font-medium text-slate">In-location</th>
                 <th className="px-4 py-2.5 text-left font-medium text-slate">Check-out</th>
+                <th className="px-4 py-2.5 text-left font-medium text-slate">Out-location</th>
                 <th className="px-4 py-2.5 text-left font-medium text-slate">Status</th>
                 <th className="px-4 py-2.5 text-left font-medium text-slate"></th>
               </tr>
@@ -185,10 +192,12 @@ export default function ManagerPage() {
                     {fmtTime(r.checkInTime)}
                     {r.checkInFaceMatch === 'needs_review' && <span className="ml-1 text-warn">●</span>}
                   </td>
+                  <td className="px-4 py-3"><LocationCell label={r.checkInLocation} distance={r.checkInDistance} /></td>
                   <td className="px-4 py-3 font-tabular text-ink">
                     {fmtTime(r.checkOutTime)}
                     {r.checkOutFaceMatch === 'needs_review' && <span className="ml-1 text-warn">●</span>}
                   </td>
+                  <td className="px-4 py-3"><LocationCell label={r.checkOutLocation} distance={r.checkOutDistance} /></td>
                   <td className="px-4 py-3"><span className={STATUS_BADGE[r.status] || 'badge-info'}>{r.status}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">

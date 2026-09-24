@@ -35,6 +35,9 @@ export async function GET() {
       checkInFaceMatch: rec?.checkIn?.faceMatchStatus || null,
       checkOutFaceMatch: rec?.checkOut?.faceMatchStatus || null,
       checkInLocation: rec?.checkIn?.locationLabel || null,
+      checkInDistance: rec?.checkIn?.distanceMeters ?? null,
+      checkOutLocation: rec?.checkOut?.locationLabel || null,
+      checkOutDistance: rec?.checkOut?.distanceMeters ?? null,
       checkInPhoto: rec?.checkIn?.photo || null,
       checkOutPhoto: rec?.checkOut?.photo || null,
     };

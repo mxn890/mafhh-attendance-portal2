@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import EmployeeNav from '../components/EmployeeNav';
 
 const STATUS_COLOR = {
   OnTime: 'bg-ok/15 text-ok border-ok/30',
@@ -31,9 +32,14 @@ export default function HistoryPage() {
   const router = useRouter();
   const today = new Date(Date.now() + 5 * 60 * 60 * 1000);
   const [month, setMonth] = useState(`${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}`);
+  const [me, setMe] = useState(null);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/me').then((r) => r.json()).then((body) => { if (!body.error) setMe(body); }).catch(() => {});
+  }, []);
 
   async function load(m) {
     try {
@@ -72,10 +78,7 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen bg-mist">
-      <div className="bg-ink px-4 py-4 flex items-center justify-between">
-        <span className="font-display font-semibold text-paper text-sm">My attendance history</span>
-        <button onClick={() => router.push('/')} className="text-xs text-slate-light hover:text-paper">← Back</button>
-      </div>
+      <EmployeeNav employee={me} />
 
       <main className="max-w-lg mx-auto px-4 py-6">
         {error && <p className="text-signal text-sm mb-4">{error}</p>}

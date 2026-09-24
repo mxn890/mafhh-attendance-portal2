@@ -83,3 +83,19 @@ const locationPingSchema = new mongoose.Schema({
 locationPingSchema.index({ timestamp: 1 }, { expireAfterSeconds: 90 * 86400 });
 
 export const LocationPing = mongoose.models.LocationPing || mongoose.model('LocationPing', locationPingSchema);
+
+const leaveRequestSchema = new mongoose.Schema({
+  employeeId: { type: String, required: true, index: true },
+  employeeName: String,
+  department: String,
+  fromDate: { type: String, required: true }, // 'YYYY-MM-DD'
+  toDate: { type: String, required: true },
+  reason: { type: String, required: true },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  requestedAt: { type: Date, default: Date.now },
+  reviewedBy: String,
+  reviewedAt: Date,
+  managerNote: String,
+});
+
+export const LeaveRequest = mongoose.models.LeaveRequest || mongoose.model('LeaveRequest', leaveRequestSchema);
