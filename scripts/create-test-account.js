@@ -1,14 +1,15 @@
 /**
- * Creates a test employee account (TEST-001) with a known password.
- * Usage: node scripts/create-test-account.js
+ * Creates a test employee account with a known password.
+ * Usage: node scripts/create-test-account.js [employeeId] [password]
+ * Defaults to TEST-001 / Test1234 if not given.
  */
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 require('dotenv').config({ path: '.env.local' });
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mafhh-dashboard';
-const TEST_ID = 'TEST-001';
-const TEST_PASSWORD = 'Test1234';
+const TEST_ID = process.argv[2] || 'TEST-001';
+const TEST_PASSWORD = process.argv[3] || 'Test1234';
 
 const employeeSchema = new mongoose.Schema({
   employeeId: { type: String, unique: true, sparse: true },

@@ -60,6 +60,13 @@ export async function POST(request) {
       faceMatchStatus = faceMatchDistance <= 0.5 ? 'verified' : 'needs_review';
     }
 
+    if (faceMatchStatus !== 'verified') {
+      return NextResponse.json(
+        { error: "This photo doesn't confidently match your enrollment photo — please try again with better lighting, facing the camera directly." },
+        { status: 400 }
+      );
+    }
+
     const location = classifyLocation(lat, lng, config);
 
     if (employee.assignedLocation !== 'either' && location.label !== employee.assignedLocation) {
