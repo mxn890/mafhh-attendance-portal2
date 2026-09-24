@@ -143,7 +143,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-mist">
       <EmployeeNav employee={me} />
 
-      <main className="max-w-sm mx-auto px-4 py-8">
+      <main className="max-w-sm mx-auto px-4 py-6 pb-24">
         {locationStatus === 'denied' && (
           <div className="bg-signal-light border border-signal/30 px-4 py-3 mb-4">
             <p className="text-sm text-signal font-medium">Location is turned off</p>

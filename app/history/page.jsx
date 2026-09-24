@@ -80,7 +80,7 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-mist">
       <EmployeeNav employee={me} />
 
-      <main className="max-w-lg mx-auto px-4 py-6">
+      <main className="max-w-lg mx-auto px-4 py-6 pb-24">
         {error && <p className="text-signal text-sm mb-4">{error}</p>}
 
         <div className="flex items-center justify-between mb-4">

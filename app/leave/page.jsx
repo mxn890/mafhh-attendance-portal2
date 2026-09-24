@@ -59,7 +59,7 @@ export default function LeavePage() {
     <div className="min-h-screen bg-mist">
       <EmployeeNav employee={me} />
 
-      <main className="max-w-sm mx-auto px-4 py-8">
+      <main className="max-w-sm mx-auto px-4 py-6 pb-24">
         <h1 className="font-display text-xl font-semibold text-ink mb-4">Request leave</h1>
 
         <form onSubmit={handleSubmit} className="bg-paper border border-line p-5 space-y-4 mb-6">
