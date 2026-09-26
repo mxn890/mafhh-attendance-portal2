@@ -13,11 +13,13 @@ export async function POST(request) {
 
     await connectDB();
     const employee = await Employee.findOne({ employeeId: employeeId.trim().toUpperCase() });
+    console.log(`[login debug] looked up "${employeeId.trim().toUpperCase()}" -> found: ${!!employee}, hasPassword: ${!!employee?.password}`);
     if (!employee || !employee.password) {
       return NextResponse.json({ error: 'Incorrect employee ID or password.' }, { status: 401 });
     }
 
     const valid = await bcrypt.compare(password, employee.password);
+    console.log(`[login debug] bcrypt.compare result: ${valid}`);
     if (!valid) {
       return NextResponse.json({ error: 'Incorrect employee ID or password.' }, { status: 401 });
     }

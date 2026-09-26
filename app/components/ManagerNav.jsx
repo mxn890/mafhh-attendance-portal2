@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/manager', label: 'Dashboard' },
   { href: '/manager/map', label: 'Live Map' },
   { href: '/manager/leaves', label: 'Leave Requests' },
+  { href: '/', label: 'My Attendance' },
 ];
 
 export default function ManagerNav() {

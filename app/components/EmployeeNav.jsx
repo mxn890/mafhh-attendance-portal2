@@ -38,7 +38,12 @@ export default function EmployeeNav({ employee }) {
       {employee && (
         <div className="bg-paper border-b border-line px-4 py-2 flex items-center justify-between">
           <p className="text-sm font-medium text-ink truncate">{employee.name}</p>
-          <p className="font-tabular text-[10px] text-slate shrink-0 ml-2">{employee.employeeId}</p>
+          <div className="flex items-center gap-3 shrink-0 ml-2">
+            {employee.role === 'manager' && (
+              <Link href="/manager" className="text-[10px] text-signal font-medium">Manager view →</Link>
+            )}
+            <p className="font-tabular text-[10px] text-slate">{employee.employeeId}</p>
+          </div>
         </div>
       )}
 
