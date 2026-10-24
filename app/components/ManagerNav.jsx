@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 const LINKS = [
-  { href: '/manager', label: 'Dashboard' },
+  { href: '/manager', label: 'Today' },
   { href: '/manager/map', label: 'Live Map' },
   { href: '/manager/leaves', label: 'Leave Requests' },
   { href: '/', label: 'My Attendance' },
@@ -47,7 +47,7 @@ export default function ManagerNav() {
         </div>
 
         {/* Mobile hamburger */}
-        <button className="md:hidden text-paper p-1" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">
+        <button className="md:hidden text-paper p-1" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open manager navigation" aria-expanded={menuOpen}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>

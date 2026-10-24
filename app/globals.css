@@ -23,3 +23,8 @@ h1, h2, h3, .font-display { font-family: var(--font-space-grotesk), sans-serif; 
 .btn-primary { @apply btn bg-ink text-paper hover:bg-signal; }
 .btn-secondary { @apply btn bg-paper text-ink border border-line hover:border-ink; }
 .btn-sm { @apply px-3 py-1.5 text-xs; }
+
+/* Keep the existing theme; make controls easier to see and operate. */
+button:disabled { opacity: .55; cursor: not-allowed; }
+:where(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid #C43228; outline-offset: 3px; }
+@media (max-width: 640px) { .btn { min-height: 44px; } }
