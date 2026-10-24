@@ -10,6 +10,7 @@ export default function ManagerLeavesPage() {
   const router = useRouter();
   const [requests, setRequests] = useState(null);
   const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
   const [filter, setFilter] = useState('pending');
   const [noteDraft, setNoteDraft] = useState({});
 
@@ -21,6 +22,7 @@ export default function ManagerLeavesPage() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Failed to load.');
       setRequests(body.requests);
+      setError(null);
     } catch (err) {
       setError(err.message);
     }
@@ -29,6 +31,9 @@ export default function ManagerLeavesPage() {
   useEffect(() => { load(); }, [filter]);
 
   async function handleDecide(id, decision) {
+    if (busyId) return;
+    if (!confirm(`${decision === 'approved' ? 'Approve' : 'Reject'} this leave request?`)) return;
+    setBusyId(id);
     try {
       const res = await fetch(`/api/manager/leaves/${id}/decide`, {
         method: 'POST',
@@ -37,34 +42,35 @@ export default function ManagerLeavesPage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Failed.');
-      load();
+      await load();
     } catch (err) {
       alert(err.message);
-    }
+    } finally { setBusyId(null); }
   }
 
-  if (error) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-signal text-sm">{error}</p></div>;
+
 
   return (
     <div className="min-h-screen bg-mist">
       <ManagerNav />
 
       <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-wrap gap-4 items-center justify-between">
           <h1 className="font-display text-2xl font-semibold text-ink">Leave requests</h1>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {['pending', 'approved', 'rejected', ''].map((s) => (
               <button
                 key={s || 'all'}
                 onClick={() => setFilter(s)}
                 className={s === filter ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
               >
-                {s || 'All'}
+                {s ? s[0].toUpperCase() + s.slice(1) : 'All'}
               </button>
             ))}
           </div>
         </div>
 
+        {error && <div role="alert" className="text-signal mb-4">{error} <button onClick={load} className="underline">Retry</button></div>}
         {!requests && <p className="text-sm text-slate">Loading…</p>}
         {requests?.length === 0 && <p className="text-sm text-slate-light">No {filter || ''} leave requests.</p>}
 
@@ -85,14 +91,14 @@ export default function ManagerLeavesPage() {
                 <div className="space-y-2">
                   <input
                     type="text"
-                    placeholder="Optional note…"
+                    aria-label={`Note for ${r.employeeName}`} placeholder="Optional note…"
                     value={noteDraft[r._id] || ''}
                     onChange={(e) => setNoteDraft((prev) => ({ ...prev, [r._id]: e.target.value }))}
                     className="w-full border border-line px-2.5 py-1.5 text-xs focus:outline-none focus:border-ink"
                   />
                   <div className="flex gap-2">
-                    <button onClick={() => handleDecide(r._id, 'approved')} className="btn-primary btn-sm flex-1">Approve</button>
-                    <button onClick={() => handleDecide(r._id, 'rejected')} className="btn-secondary btn-sm flex-1">Reject</button>
+                    <button disabled={Boolean(busyId)} onClick={() => handleDecide(r._id, 'approved')} className="btn-primary btn-sm flex-1">Approve</button>
+                    <button disabled={Boolean(busyId)} onClick={() => handleDecide(r._id, 'rejected')} className="btn-secondary btn-sm flex-1">Reject</button>
                   </div>
                 </div>
               )}

@@ -32,6 +32,7 @@ export default function HomePage() {
       if (!res.ok) throw new Error(body.error || 'Failed to load.');
       if (body.mustChangePassword || !body.isEnrolled) return router.push('/setup');
       setMe(body);
+      setError(null);
     } catch (err) {
       setError(err.message);
     }
@@ -114,6 +115,7 @@ export default function HomePage() {
   }
 
   async function handleCapture(dataUrl, descriptor) {
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -144,6 +146,8 @@ export default function HomePage() {
       <EmployeeNav employee={me} />
 
       <main className="max-w-sm mx-auto px-4 py-6 pb-24">
+        <h1 className="font-display text-2xl font-semibold text-ink mb-1">My attendance</h1>
+        <p className="text-sm text-slate mb-5">{me.today.checkedOut ? 'You have finished for today.' : me.today.checkedIn ? 'Check out when your shift ends.' : 'Check in when you start your shift.'}</p>
         {locationStatus === 'denied' && (
           <div className="bg-signal-light border border-signal/30 px-4 py-3 mb-4">
             <p className="text-sm text-signal font-medium">Location is turned off</p>
@@ -189,7 +193,7 @@ export default function HomePage() {
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm text-slate">Status</span>
                   <span className={me.today.status === 'OnTime' ? 'badge-success' : me.today.status === 'Leave' ? 'badge-info' : 'badge-warning'}>
-                    {me.today.status}
+                    {{OnTime:'On time', HalfDay:'Half day', Leave:'On leave'}[me.today.status] || me.today.status}
                   </span>
                 </div>
               )}
@@ -214,9 +218,9 @@ export default function HomePage() {
         {mode && (
           <div className="bg-paper border border-line p-6">
             <p className="font-display font-semibold text-ink mb-4 text-center">{mode === 'checkin' ? 'Check in' : 'Check out'}</p>
-            <SelfieCapture onCapture={handleCapture} buttonLabel={submitting ? 'Submitting…' : (mode === 'checkin' ? 'Check in' : 'Check out')} />
+            <SelfieCapture disabled={submitting} onCapture={handleCapture} buttonLabel={submitting ? 'Submitting…' : (mode === 'checkin' ? 'Check in' : 'Check out')} />
             {error && <p className="text-sm text-signal text-center mt-3">{error}</p>}
-            <button onClick={() => setMode(null)} className="btn-secondary w-full mt-3">Cancel</button>
+            <button disabled={submitting} onClick={() => setMode(null)} className="btn-secondary w-full mt-3">Cancel</button>
           </div>
         )}
       </main>

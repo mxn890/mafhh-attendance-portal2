@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 const LINKS = [
   { href: '/', label: 'Attendance', icon: '⏱' },
   { href: '/history', label: 'History', icon: '📅' },
-  { href: '/leave', label: 'Leave', icon: '✉' },
+  { href: '/leave', label: 'Request leave', icon: '✉' },
 ];
 
 export default function EmployeeNav({ employee }) {
@@ -40,7 +40,7 @@ export default function EmployeeNav({ employee }) {
           <p className="text-sm font-medium text-ink truncate">{employee.name}</p>
           <div className="flex items-center gap-3 shrink-0 ml-2">
             {employee.role === 'manager' && (
-              <Link href="/manager" className="text-[10px] text-signal font-medium">Manager view →</Link>
+              <Link href="/manager" className="text-sm text-signal font-medium">Attendance manager →</Link>
             )}
             <p className="font-tabular text-[10px] text-slate">{employee.employeeId}</p>
           </div>
