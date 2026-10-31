@@ -24,55 +24,21 @@ export default function ManagerNav() {
   }
 
   return (
-    <div className="bg-ink sticky top-0 z-40">
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-1.5 h-4 bg-signal shrink-0" />
-          <div className="min-w-0">
-            <p className="font-display font-semibold text-paper text-sm leading-tight truncate">MAFHH AVIATION</p>
-            <p className="text-[9px] text-slate-light leading-tight">Attendance — Manager</p>
-          </div>
-        </div>
-
-        {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-1">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`px-3 py-1.5 text-xs font-medium ${pathname === link.href ? 'text-paper' : 'text-slate-light hover:text-paper'}`}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <button onClick={handleLogout} className="ml-2 text-xs text-slate-light hover:text-paper">Sign out</button>
-        </div>
-
-        {/* Mobile hamburger */}
-        <button className="md:hidden text-paper p-1" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open manager navigation" aria-expanded={menuOpen}>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+    <header className="manager-header sticky top-0 z-40">
+      <div className="manager-topbar">
+        <Link href="/manager" className="brand-lockup" aria-label="MAFHH Aviation attendance home">
+          <span className="brand-mark" aria-hidden="true">M<span /></span>
+          <span><strong>MAFHH AVIATION</strong><small>People & attendance</small></span>
+        </Link>
+        <div className="hidden md:flex items-center gap-4"><span className="workspace-label"><span />Manager workspace</span><button onClick={handleLogout} className="btn-secondary btn-sm">Sign out</button></div>
+        <button className="md:hidden btn-secondary" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open manager navigation" aria-expanded={menuOpen}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
       </div>
-
-      {/* Mobile dropdown */}
-      {menuOpen && (
-        <div className="md:hidden border-t border-white/10 px-4 py-2">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMenuOpen(false)}
-              className={`block py-2.5 text-sm font-medium ${pathname === link.href ? 'text-signal' : 'text-slate-light'}`}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <button onClick={handleLogout} className="block w-full text-left py-2.5 text-sm text-slate-light">Sign out</button>
-        </div>
-      )}
-    </div>
+      <nav aria-label="Manager navigation" className={`manager-navigation ${menuOpen ? 'is-open' : ''}`}>
+        {LINKS.map(link => <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)} aria-current={pathname === link.href ? 'page' : undefined} className={`manager-nav-link ${pathname === link.href ? 'is-active' : ''}`}>{link.label}</Link>)}
+        <button onClick={handleLogout} className="md:hidden manager-nav-link">Sign out</button>
+      </nav>
+    </header>
   );
 }
-

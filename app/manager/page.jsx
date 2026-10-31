@@ -151,11 +151,11 @@ export default function ManagerPage() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="font-display text-2xl font-semibold text-ink">Attendance manager</h1>
+          <span className="eyebrow">DAILY OVERVIEW</span><h1 className="font-display text-2xl font-semibold text-ink">A clear view of your day.</h1>
           <p className="text-sm text-slate">{data.date} · {data.rows.length} employees · {needsReview.length} photos to review</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-px bg-line mb-6">
+        <div className="attendance-summary grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
           {['OnTime', 'Late', 'Pending', 'Scheduled', 'Absent', 'Leave'].map((status) => {
             const count = data.rows.filter((r) => r.status === status).length;
             return (
@@ -189,7 +189,7 @@ export default function ManagerPage() {
           <span className="text-xs text-slate sm:ml-auto">{visibleRows.length} shown</span>
         </div>
         <p className="text-xs text-slate mb-3">Select an employee name to see history. Use Actions for leave and password changes.</p>
-        <div className="bg-paper border border-line overflow-x-auto">
+        <div className="data-panel bg-paper border border-line overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-mist border-b border-line">
               <tr>

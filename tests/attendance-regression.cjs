@@ -11,7 +11,7 @@ function match(o,q={}) {return Object.entries(q).every(([k,v])=>{
  });}
 function set(o,k,v){const p=k.split('.');let a=o;for(const x of p.slice(0,-1))a=a[x]??={};a[p.at(-1)]=clone(v);}
 function update(o,u,insert=false){for(const[k,v]of Object.entries(u.$set||{}))set(o,k,v);if(insert)for(const[k,v]of Object.entries(u.$setOnInsert||{}))set(o,k,v);for(const[k,v]of Object.entries(u.$inc||{}))set(o,k,(value(o,k)||0)+v);for(const[k,v]of Object.entries(u.$max||{}))if(value(o,k)==null||value(o,k)<v)set(o,k,v);}
-class Query{constructor(rows,one=false){this.rows=rows;this.one=one;}select(){return this;}sort(spec){this.rows.sort((a,b)=>{for(const[k,v]of Object.entries(spec)){const x=value(a,k),y=value(b,k);if(x<y)return -v;if(x>y)return v;}return 0;});return this;}lean(){return this;}limit(n){this.rows=this.rows.slice(0,n);return this;}then(a,b){return Promise.resolve(clone(this.one?this.rows[0]||null:this.rows)).then(a,b);}}
+class Query{constructor(rows,one=false,col=null){this.rows=rows;this.one=one;this.col=col;this.plain=false;}select(){return this;}sort(spec){this.rows.sort((a,b)=>{for(const[k,v]of Object.entries(spec)){const x=value(a,k),y=value(b,k);if(x<y)return -v;if(x>y)return v;}return 0;});return this;}lean(){this.plain=true;return this;}limit(n){this.rows=this.rows.slice(0,n);return this;}then(a,b){const obj=clone(this.one?this.rows[0]||null:this.rows);if(obj&&this.one&&this.col&&!this.plain){Object.defineProperty(obj,'save',{enumerable:false,value:async()=>{const row=data[this.col].find(x=>x.employeeId===obj.employeeId);Object.assign(row,clone(obj));return obj;}});}return Promise.resolve(obj).then(a,b);}}
 function collection(name){data[name]??=[];return{
  createIndex:async()=>{},findOne:async q=>clone(data[name].find(o=>match(o,q))||null),
  insertOne:async o=>{if(data[name].some(x=>x._id===o._id))throw Object.assign(Error('duplicate'),{code:11000});data[name].push(clone(o));return{insertedId:o._id};},
@@ -20,7 +20,7 @@ function collection(name){data[name]??=[];return{
  findOneAndUpdate:async(q,u,opt)=>{let o=data[name].find(o=>match(o,q));if(!o)return{value:null};update(o,u);return{value:clone(o)};}
 };}
 const models={};for(const[name,col]of Object.entries({Employee:'employees',Attendance:'attendances',AttendanceConfig:'attendanceconfigs',LocationPing:'locationpings'}))models[name]={
- find:q=>new Query(data[col]?.filter(o=>match(o,q))||[]),findOne:q=>new Query(data[col]?.filter(o=>match(o,q))||[],true),
+ find:q=>new Query(data[col]?.filter(o=>match(o,q))||[]),findOne:q=>new Query(data[col]?.filter(o=>match(o,q))||[],true,col),
  create:async o=>{data[col]??=[];if(data[col].some(e=>e.employeeId===o.employeeId))throw Object.assign(Error(),{code:11000});data[col].push({...clone(o),_id:crypto.randomUUID()});return o;},
  updateOne:(q,u,opt)=>collection(col).updateOne(q,u,opt),
  findOneAndUpdate:async(q,u,opt={})=>{let o=data[col].find(o=>match(o,q));if(!o&&opt.upsert){if(data[col].some(e=>e.employeeId===q.employeeId&&e.date===q.date))throw Object.assign(Error(),{code:11000});o={_id:crypto.randomUUID()};data[col].push(o);update(o,u,true);}else if(o)update(o,u);return clone(o||null);},
@@ -100,6 +100,16 @@ await test('Overtime night employee still sees checkout after scheduled end',asy
 const today=await moduleOf('app/api/manager/today/route.js');
 await test('Manager summary does not mark future shift absent',async()=>{
  session={userId:'CEO',role:'manager'};clock='2026-10-31T02:00:00Z';data.attendances.length=0;const r=await today.GET();const row=r.body.rows.find(e=>e.employeeId===emp.employeeId);assert.equal(row.status,'Scheduled');
+});
+const singleReset=await moduleOf('app/api/manager/reset-password/route.js');
+await test('Single password reset changes only selected employee and preserves selfie',async()=>{
+ session={userId:'CEO',role:'manager'};emp.isEnrolled=true;emp.faceDescriptor=face;const managerBefore=clone(data.employees.find(e=>e.employeeId==='CEO'));
+ const r=await singleReset.POST(req({employeeId:emp.employeeId,resetSelfie:false}));assert.equal(r.status,200);assert.equal(await bcrypt.compare(r.body.tempPassword,emp.password),true);assert.equal(emp.isEnrolled,true);assert.deepEqual(emp.faceDescriptor,face);assert.deepEqual(data.employees.find(e=>e.employeeId==='CEO'),managerBefore);
+});
+await test('Single reset optionally clears enrollment; employee access and CEO target blocked',async()=>{
+ assert.equal((await singleReset.POST(req({employeeId:'CEO'}))).status,403);
+ const r=await singleReset.POST(req({employeeId:emp.employeeId,resetSelfie:true}));assert.equal(r.status,200);assert.equal(emp.isEnrolled,false);assert.equal(emp.faceDescriptor,null);
+ session={userId:emp.employeeId,role:'employee'};assert.equal((await singleReset.POST(req({employeeId:emp.employeeId}))).status,403);
 });
 const csv=await moduleOf('app/lib/csv.js');await test('CSV quotes names and blocks spreadsheet formulas',()=>{assert.equal(csv.csvCell('a,"b"'),'"a,""b"""');assert.equal(csv.csvCell('=SUM(1,2)'),'"\'=SUM(1,2)"');});
 console.log('\nATTENDANCE REGRESSION TESTS:',passed,'PASSED (in-memory data store, real handlers/policy/bcrypt; no live records changed).');
