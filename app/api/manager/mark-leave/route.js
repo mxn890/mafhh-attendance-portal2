@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
-import { Employee, Attendance } from '@/app/lib/db/models';
+import { Employee, Attendance, AttendanceConfig } from '@/app/lib/db/models';
+import { shiftDate } from '@/app/lib/attendance-policy';
 import { getSession } from '@/app/lib/auth/jwt';
 
 function todayPKT() {
@@ -22,9 +23,11 @@ export async function POST(request) {
     const employee = await Employee.findOne({ employeeId });
     if (!employee) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
 
-    const date = todayPKT();
+    const date = shiftDate(employee, (await AttendanceConfig.findOne({ key: 'default' })) || {});
+    const existing = await Attendance.findOne({ employeeId, date });
+    if (existing?.checkIn?.time) return NextResponse.json({ error: 'This employee already checked in. Review attendance instead of replacing it with leave.' }, { status: 409 });
     await Attendance.findOneAndUpdate(
-      { employeeId, date },
+      { employeeId, date, 'checkIn.time': { $exists: false } },
       { $setOnInsert: { employeeId, employeeName: employee.name, date }, $set: { status: 'Leave', reviewedBy: session.userId, reviewNote: note || null, updatedAt: new Date() } },
       { upsert: true }
     );
@@ -34,3 +37,4 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
+

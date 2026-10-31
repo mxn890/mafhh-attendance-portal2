@@ -25,11 +25,11 @@ export function classifyLocation(lat, lng, config) {
 
   if (office?.lat != null && office?.lng != null) {
     const d = distanceMeters(lat, lng, office.lat, office.lng);
-    candidates.push({ label: 'office', distanceMeters: d, withinRadius: d <= (office.radiusMeters || 150) });
+    candidates.push({ label: 'office', distanceMeters: d, withinRadius: d <= 1000 });
   }
   if (airport?.lat != null && airport?.lng != null) {
     const d = distanceMeters(lat, lng, airport.lat, airport.lng);
-    candidates.push({ label: 'airport', distanceMeters: d, withinRadius: d <= (airport.radiusMeters || 300) });
+    candidates.push({ label: 'airport', distanceMeters: d, withinRadius: d <= 1000 });
   }
 
   if (candidates.length === 0) return { label: 'not_configured', distanceMeters: null };
@@ -39,4 +39,11 @@ export function classifyLocation(lat, lng, config) {
 
   const nearest = candidates.reduce((a, b) => (a.distanceMeters < b.distanceMeters ? a : b));
   return { label: 'out_of_range', distanceMeters: Math.round(nearest.distanceMeters) };
+}
+
+
+export function classifyAssignedLocation(lat, lng, config, assignedLocation) {
+  if (assignedLocation === 'office') return classifyLocation(lat, lng, { officeLocation: config?.officeLocation });
+  if (assignedLocation === 'airport') return classifyLocation(lat, lng, { airportLocation: config?.airportLocation });
+  return classifyLocation(lat, lng, config);
 }

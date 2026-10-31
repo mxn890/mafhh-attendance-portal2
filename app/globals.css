@@ -28,3 +28,16 @@ h1, h2, h3, .font-display { font-family: var(--font-space-grotesk), sans-serif; 
 button:disabled { opacity: .55; cursor: not-allowed; }
 :where(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid #C43228; outline-offset: 3px; }
 @media (max-width: 640px) { .btn { min-height: 44px; } }
+
+
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  .no-print, nav, header, button { display: none !important; }
+  html, body, .bg-mist, .bg-paper { background: white !important; color: black !important; }
+  .attendance-report { max-width: none !important; width: 100% !important; padding: 0 !important; }
+  .report-table-wrap { overflow: visible !important; }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th, td { border-bottom: 1px solid #ccc; padding: 5px !important; }
+}

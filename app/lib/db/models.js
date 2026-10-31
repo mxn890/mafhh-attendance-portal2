@@ -10,6 +10,9 @@ const employeeSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   assigned_pc: { type: String, default: null },
   shift_timing: String,
+  shiftStart: String,
+  shiftEnd: String,
+  authVersion: { type: Number, default: 0 },
   profile_photo: String,
 
   password: { type: String, default: null },
@@ -57,8 +60,8 @@ attendanceSchema.index({ employeeId: 1, date: 1 }, { unique: true });
 
 const attendanceConfigSchema = new mongoose.Schema({
   key: { type: String, default: 'default', unique: true },
-  officeLocation: { address: String, lat: { type: Number, default: null }, lng: { type: Number, default: null }, radiusMeters: { type: Number, default: 150 } },
-  airportLocation: { address: String, lat: { type: Number, default: null }, lng: { type: Number, default: null }, radiusMeters: { type: Number, default: 300 } },
+  officeLocation: { address: String, lat: { type: Number, default: null }, lng: { type: Number, default: null }, radiusMeters: { type: Number, default: 1000 } },
+  airportLocation: { address: String, lat: { type: Number, default: null }, lng: { type: Number, default: null }, radiusMeters: { type: Number, default: 1000 } },
   shiftRules: {
     startTime: { type: String, default: '09:00' },
     lateAfter: { type: String, default: '09:30' },
@@ -99,3 +102,4 @@ const leaveRequestSchema = new mongoose.Schema({
 });
 
 export const LeaveRequest = mongoose.models.LeaveRequest || mongoose.model('LeaveRequest', leaveRequestSchema);
+

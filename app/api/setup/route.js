@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/app/lib/db/connect';
 import { Employee } from '@/app/lib/db/models';
-import { getSession } from '@/app/lib/auth/jwt';
+import { validDescriptor } from '@/app/lib/attendance-policy';
+import { getSession, createToken, setAuthCookie } from '@/app/lib/auth/jwt';
 
 export async function POST(request) {
   try {
@@ -16,15 +17,17 @@ export async function POST(request) {
     if (!employee) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
 
     if (newPassword) {
-      if (newPassword.length < 6) {
+      if (typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 256) {
         return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 });
       }
       employee.password = await bcrypt.hash(newPassword, 10);
       employee.mustChangePassword = false;
+      employee.authVersion = Number(employee.authVersion || 0) + 1;
     }
 
     if (faceDescriptor && enrollmentPhoto) {
-      if (!Array.isArray(faceDescriptor) || faceDescriptor.length !== 128) {
+      if (typeof enrollmentPhoto !== 'string' || !enrollmentPhoto.startsWith('data:image/') || enrollmentPhoto.length > 3000000) return NextResponse.json({ error: 'A valid enrollment photo is required.' }, { status: 400 });
+      if (!validDescriptor(faceDescriptor)) {
         return NextResponse.json({ error: 'Could not read a clear face from that photo — please try again.' }, { status: 400 });
       }
       employee.faceDescriptor = faceDescriptor;
@@ -34,9 +37,11 @@ export async function POST(request) {
 
     employee.updatedAt = new Date();
     await employee.save();
+    if (newPassword) await setAuthCookie(await createToken(employee.employeeId, employee.email || employee.employeeId, employee.attendanceRole, employee.authVersion));
 
     return NextResponse.json({ ok: true, mustChangePassword: employee.mustChangePassword, isEnrolled: employee.isEnrolled });
   } catch (err) {
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
+

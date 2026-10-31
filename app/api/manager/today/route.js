@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
-import { Employee, Attendance } from '@/app/lib/db/models';
+import { Employee, Attendance, AttendanceConfig } from '@/app/lib/db/models';
+import { dayPKT, addDays, shiftDate, missingStatus } from '@/app/lib/attendance-policy';
 import { getSession } from '@/app/lib/auth/jwt';
 
 function todayPKT() {
@@ -17,11 +18,13 @@ export async function GET() {
   await connectDB();
   const date = todayPKT();
   const employees = await Employee.find({ status: 'active' }).sort({ department: 1, name: 1 });
-  const records = await Attendance.find({ date });
-  const byEmployeeId = new Map(records.map((r) => [r.employeeId, r]));
+  const config = (await AttendanceConfig.findOne({ key: 'default' })) || {};
+  const now = new Date();
+  const records = await Attendance.find({ date: { $gte: addDays(date, -1), $lte: date } });
+  const byEmployeeId = new Map(records.map((r) => [r.employeeId + ":" + r.date, r]));
 
   const rows = employees.map((e) => {
-    const rec = byEmployeeId.get(e.employeeId);
+    const rec = byEmployeeId.get(e.employeeId + ":" + shiftDate(e, config, now)) || records.find(r => r.employeeId === e.employeeId && r.checkIn?.time && !r.checkOut?.time);
     return {
       employeeId: e.employeeId,
       name: e.name,
@@ -29,7 +32,8 @@ export async function GET() {
       shift_timing: e.shift_timing,
       isEnrolled: e.isEnrolled,
       assignedLocation: e.assignedLocation || 'either',
-      status: rec?.status || 'Absent',
+      status: rec?.status || missingStatus(e, config, now),
+      attendanceDate: rec?.date || shiftDate(e, config, now),
       checkInTime: rec?.checkIn?.time || null,
       checkOutTime: rec?.checkOut?.time || null,
       checkInFaceMatch: rec?.checkIn?.faceMatchStatus || null,
@@ -45,3 +49,4 @@ export async function GET() {
 
   return NextResponse.json({ date, rows });
 }
+

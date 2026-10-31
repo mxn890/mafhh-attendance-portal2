@@ -9,8 +9,8 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-const STATUS_BADGE = { OnTime: 'badge-success', Late: 'badge-warning', HalfDay: 'badge-warning', Absent: 'badge-danger', Leave: 'badge-info' };
-const STATUS_LABEL = { OnTime: 'On time', Late: 'Late', HalfDay: 'Half day', Absent: 'Absent', Leave: 'On leave' };
+const STATUS_BADGE = { Scheduled: 'badge-info', Pending: 'badge-info', ShiftNotSet: 'badge-warning', OnTime: 'badge-success', Late: 'badge-warning', HalfDay: 'badge-warning', Absent: 'badge-danger', Leave: 'badge-info' };
+const STATUS_LABEL = { Scheduled: 'Shift not started', Pending: 'Awaiting check-in', ShiftNotSet: 'Shift not set', OnTime: 'On time', Late: 'Late', HalfDay: 'Half day', Absent: 'Absent', Leave: 'On leave' };
 const LOCATION_LABEL = { office: 'Office', airport: 'Airport', out_of_range: 'Out of range', not_configured: 'Not set up' };
 
 function LocationCell({ label, distance, assignedLocation }) {
@@ -155,8 +155,8 @@ export default function ManagerPage() {
           <p className="text-sm text-slate">{data.date} · {data.rows.length} employees · {needsReview.length} photos to review</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-line mb-6">
-          {['OnTime', 'Late', 'HalfDay', 'Absent', 'Leave'].map((status) => {
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-px bg-line mb-6">
+          {['OnTime', 'Late', 'Pending', 'Scheduled', 'Absent', 'Leave'].map((status) => {
             const count = data.rows.filter((r) => r.status === status).length;
             return (
               <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)} aria-pressed={statusFilter === status} className={`text-center py-4 ${statusFilter === status ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-mist'}`}>
@@ -210,7 +210,7 @@ export default function ManagerPage() {
                 <tr key={r.employeeId}>
                   <td className="px-4 py-3">
                     <button onClick={() => openHistory(r.employeeId)} className="font-medium text-ink hover:text-signal text-left">{r.name}</button>
-                    <p className="font-tabular text-xs text-slate-light">{r.employeeId}</p>
+                    <p className="font-tabular text-xs text-slate-light">{r.employeeId} · {r.shift_timing || 'Shift not set'}</p>
                   </td>
                   <td className="px-4 py-3 text-slate">{r.department}</td>
                   {showDetails && <td className="px-4 py-3">
@@ -279,7 +279,7 @@ export default function ManagerPage() {
             {historyData?.error && <p className="text-sm text-signal">{historyData.error}</p>}
             {historyData?.records && (
               <>
-                <p className="font-display font-semibold text-ink mb-1">{historyData.employee.name}</p>
+                <p className="font-display font-semibold text-ink mb-1">{historyData.employee.name}</p><a className="underline text-sm block mb-3" href={"/manager/reports?employeeId=" + encodeURIComponent(historyData.employee.employeeId)}>View 7 days, 14 days or month / Print</a>
                 <p className="font-tabular text-xs text-slate-light mb-4">{historyData.employee.employeeId} · {historyData.employee.department}</p>
                 <div className="grid grid-cols-5 gap-px bg-line mb-4">
                   {Object.entries(historyData.summary).map(([label, value]) => (
@@ -311,3 +311,4 @@ export default function ManagerPage() {
     </div>
   );
 }
+

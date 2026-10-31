@@ -7,24 +7,22 @@ import { createToken, setAuthCookie } from '@/app/lib/auth/jwt';
 export async function POST(request) {
   try {
     const { employeeId, password } = await request.json();
-    if (!employeeId || !password) {
+    if (typeof employeeId !== 'string' || typeof password !== 'string' || !employeeId.trim() || !password || employeeId.length > 64 || password.length > 256) {
       return NextResponse.json({ error: 'Employee ID and password are required.' }, { status: 400 });
     }
 
     await connectDB();
     const employee = await Employee.findOne({ employeeId: employeeId.trim().toUpperCase() });
-    console.log(`[login debug] looked up "${employeeId.trim().toUpperCase()}" -> found: ${!!employee}, hasPassword: ${!!employee?.password}`);
-    if (!employee || !employee.password) {
+    if (!employee || employee.status !== 'active' || !employee.password) {
       return NextResponse.json({ error: 'Incorrect employee ID or password.' }, { status: 401 });
     }
 
     const valid = await bcrypt.compare(password, employee.password);
-    console.log(`[login debug] bcrypt.compare result: ${valid}`);
     if (!valid) {
       return NextResponse.json({ error: 'Incorrect employee ID or password.' }, { status: 401 });
     }
 
-    const token = await createToken(employee.employeeId, employee.email || employee.employeeId, employee.attendanceRole);
+    const token = await createToken(employee.employeeId, employee.email || employee.employeeId, employee.attendanceRole, employee.authVersion || 0);
     await setAuthCookie(token);
 
     return NextResponse.json({
@@ -38,3 +36,4 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
+

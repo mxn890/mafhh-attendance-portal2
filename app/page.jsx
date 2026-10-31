@@ -139,7 +139,7 @@ export default function HomePage() {
   if (error && !me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-signal text-sm">{error}</p></div>;
   if (!me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-slate text-sm">Loading…</p></div>;
 
-  const withinRadius = liveLocation && liveLocation !== 'error' && (liveLocation.label === 'office' || liveLocation.label === 'airport');
+  const withinRadius = liveLocation?.exempt || liveLocation && liveLocation !== 'error' && (liveLocation.label === 'office' || liveLocation.label === 'airport');
 
   return (
     <div className="min-h-screen bg-mist">
@@ -168,7 +168,7 @@ export default function HomePage() {
             {liveLocation && liveLocation !== 'error' && (
               <p className={`text-sm font-medium ${withinRadius ? 'text-ok' : 'text-signal'}`}>
                 {withinRadius ? '✓ ' : liveLocation.label === 'out_of_range' ? '✗ ' : ''}
-                {LOCATION_LABEL[liveLocation.label] || liveLocation.label}
+                {liveLocation.exempt ? 'Anywhere attendance allowed' : LOCATION_LABEL[liveLocation.label] || liveLocation.label}
                 {liveLocation.distanceMeters != null && <span className="text-slate-light font-normal"> · {liveLocation.distanceMeters}m away</span>}
               </p>
             )}
@@ -227,3 +227,4 @@ export default function HomePage() {
     </div>
   );
 }
+

@@ -1,3 +1,4 @@
+import { validCoordinates, dayPKT, addDays } from '@/app/lib/attendance-policy';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
 import { LocationPing, Attendance } from '@/app/lib/db/models';
@@ -14,13 +15,13 @@ export async function POST(request) {
     if (!session) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 });
 
     const { lat, lng } = await request.json();
-    if (lat == null || lng == null) return NextResponse.json({ error: 'lat/lng required.' }, { status: 400 });
+    if (!validCoordinates(lat, lng)) return NextResponse.json({ error: 'lat/lng required.' }, { status: 400 });
 
     await connectDB();
 
     // Only log pings while actually checked in and not yet checked out —
     // this is a duty-hours trail, not indefinite tracking.
-    const today = await Attendance.findOne({ employeeId: session.userId, date: todayPKT() });
+    const today = await Attendance.findOne({ employeeId: session.userId, date: { $gte: addDays(dayPKT(), -1), $lte: dayPKT() }, 'checkIn.time': { $exists: true }, 'checkOut.time': { $exists: false } }).sort({ 'checkIn.time': -1 });
     if (!today?.checkIn || today?.checkOut) {
       return NextResponse.json({ ok: false, reason: 'not_on_duty' });
     }
@@ -31,3 +32,4 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
   }
 }
+

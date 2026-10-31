@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
 import { Employee, Attendance } from '@/app/lib/db/models';
+import { shiftDate, dayPKT, addDays } from '@/app/lib/attendance-policy';
+import { AttendanceConfig } from '@/app/lib/db/models';
 import { getSession } from '@/app/lib/auth/jwt';
 
 function todayPKT() {
@@ -16,7 +18,12 @@ export async function GET() {
   const employee = await Employee.findOne({ employeeId: session.userId });
   if (!employee) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
 
-  const today = await Attendance.findOne({ employeeId: employee.employeeId, date: todayPKT() });
+  const config = (await AttendanceConfig.findOne({ key: 'default' })) || {};
+  let today = await Attendance.findOne({ employeeId: employee.employeeId, date: shiftDate(employee, config) });
+  if (!today?.checkIn?.time) {
+    const open = await Attendance.findOne({ employeeId: employee.employeeId, date: { $gte: addDays(dayPKT(), -1), $lte: dayPKT() }, 'checkIn.time': { $exists: true }, 'checkOut.time': { $exists: false } }).sort({ 'checkIn.time': -1 });
+    if (open) today = open;
+  }
 
   return NextResponse.json({
     employeeId: employee.employeeId,
@@ -35,3 +42,4 @@ export async function GET() {
     } : { checkedIn: false, checkedOut: false, status: null },
   });
 }
+

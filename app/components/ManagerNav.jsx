@@ -6,6 +6,8 @@ import { useState } from 'react';
 
 const LINKS = [
   { href: '/manager', label: 'Today' },
+  { href: '/manager/employees', label: 'Employees' },
+  { href: '/manager/reports', label: 'Reports / Print' },
   { href: '/manager/map', label: 'Live Map' },
   { href: '/manager/leaves', label: 'Leave Requests' },
   { href: '/', label: 'My Attendance' },
@@ -73,3 +75,4 @@ export default function ManagerNav() {
     </div>
   );
 }
+
