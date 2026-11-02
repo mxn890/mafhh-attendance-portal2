@@ -32,7 +32,7 @@ function labeledIcon(employeeId, isLive) {
   });
 }
 
-export default function LiveMap({ points, office, airport }) {
+export default function LiveMap({ points, office, airport, quarantine }) {
   const center = points[0] ? [points[0].lat, points[0].lng] : office ? [office.lat, office.lng] : [31.5497, 74.3436];
 
   return (
@@ -49,6 +49,11 @@ export default function LiveMap({ points, office, airport }) {
       {airport && (
         <Circle center={[airport.lat, airport.lng]} radius={airport.radiusMeters} pathOptions={{ color: '#1A7A4C', fillOpacity: 0.05 }}>
           <Popup>Airport zone</Popup>
+        </Circle>
+      )}
+      {quarantine && (
+        <Circle center={[quarantine.lat, quarantine.lng]} radius={quarantine.radiusMeters} pathOptions={{ color: '#4169A1', fillOpacity: 0.05 }}>
+          <Popup>Animal Quarantine Department (AQD) zone</Popup>
         </Circle>
       )}
       {points.map((p) => (

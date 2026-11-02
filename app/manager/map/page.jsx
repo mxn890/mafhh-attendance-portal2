@@ -44,7 +44,7 @@ export default function LiveMapPage() {
               <div className="card"><p className="text-sm text-slate-light">No one is currently checked in.</p></div>
             ) : (
               <div className="border border-line">
-                <LiveMap points={data.points} office={data.office} airport={data.airport} />
+                <LiveMap points={data.points} office={data.office} airport={data.airport} quarantine={data.quarantine} />
               </div>
             )}
             <div className="mt-4 space-y-1">

@@ -11,11 +11,11 @@ function fmtTime(iso) {
 
 const STATUS_BADGE = { Scheduled: 'badge-info', Pending: 'badge-info', ShiftNotSet: 'badge-warning', OnTime: 'badge-success', Late: 'badge-warning', HalfDay: 'badge-warning', Absent: 'badge-danger', Leave: 'badge-info' };
 const STATUS_LABEL = { Scheduled: 'Shift not started', Pending: 'Awaiting check-in', ShiftNotSet: 'Shift not set', OnTime: 'On time', Late: 'Late', HalfDay: 'Half day', Absent: 'Absent', Leave: 'On leave' };
-const LOCATION_LABEL = { office: 'Office', airport: 'Airport', out_of_range: 'Out of range', not_configured: 'Not set up' };
+const LOCATION_LABEL = { office: 'Office', airport: 'Airport', quarantine: 'Quarantine (AQD)', out_of_range: 'Out of range', not_configured: 'Not set up' };
 
 function LocationCell({ label, distance, assignedLocation }) {
   if (!label) return <span className="text-slate-light text-xs">—</span>;
-  const withinRadius = label === 'office' || label === 'airport';
+  const withinRadius = label === 'office' || label === 'airport' || label === 'quarantine';
   const isAlert = label === 'out_of_range' && assignedLocation !== 'either'; // "either" employees can be anywhere — never an alert for them
   return (
     <div className="text-xs">
@@ -222,6 +222,7 @@ export default function ManagerPage() {
                       <option value="either">Either</option>
                       <option value="office">Office only</option>
                       <option value="airport">Airport only</option>
+                      <option value="quarantine">Quarantine (AQD) only</option>
                     </select>
                   </td>}
                   <td className="px-4 py-3 font-tabular text-ink">

@@ -1,7 +1,8 @@
+import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { dayPKT, addDays } from '@/app/lib/attendance-policy';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
-import { Employee, Attendance, LocationPing, AttendanceConfig } from '@/app/lib/db/models';
+import { Employee, Attendance, LocationPing } from '@/app/lib/db/models';
 import { getSession } from '@/app/lib/auth/jwt';
 
 function todayPKT() {
@@ -41,12 +42,13 @@ export async function GET() {
     });
   }
 
-  const config = await AttendanceConfig.findOne({ key: 'default' });
+  const config = await getAttendanceConfig();
 
   return NextResponse.json({
     points,
     office: config?.officeLocation?.lat != null ? { lat: config.officeLocation.lat, lng: config.officeLocation.lng, radiusMeters: 1000 } : null,
     airport: config?.airportLocation?.lat != null ? { lat: config.airportLocation.lat, lng: config.airportLocation.lng, radiusMeters: 1000 } : null,
+    quarantine: config?.quarantineLocation?.lat != null ? { lat: config.quarantineLocation.lat, lng: config.quarantineLocation.lng, radiusMeters: 1000 } : null,
   });
 }
 

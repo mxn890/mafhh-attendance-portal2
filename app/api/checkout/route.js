@@ -1,6 +1,7 @@
+import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
-import { Employee, Attendance, AttendanceConfig } from '@/app/lib/db/models';
+import { Employee, Attendance } from '@/app/lib/db/models';
 import { getSession } from '@/app/lib/auth/jwt';
 import { classifyAssignedLocation } from '@/app/lib/geo';
 import { validCoordinates, faceDistance, attendanceReady, dayPKT, addDays } from '@/app/lib/attendance-policy';
@@ -17,10 +18,11 @@ export async function POST(request) {
     // A night shift is checked out against its original shift date, even after midnight.
     const existing = await Attendance.findOne({ employeeId: employee.employeeId, date: { $gte: addDays(dayPKT(now), -1), $lte: dayPKT(now) }, 'checkIn.time': { $exists: true }, 'checkOut.time': { $exists: false } }).sort({ 'checkIn.time': -1 });
     if (!existing) return NextResponse.json({ error: 'No open check-in found. Refresh your attendance.' }, { status: 409 });
-    const config = (await AttendanceConfig.findOne({ key: 'default' })) || {};
+    const config = (await getAttendanceConfig()) || {};
     const distance = faceDistance(employee.faceDescriptor, faceDescriptor);
     if (distance > 0.5) return NextResponse.json({ error: 'Selfie did not match. Please try again with better lighting.' }, { status: 400 });
     const location = classifyAssignedLocation(lat, lng, config, employee.assignedLocation);
+    if (employee.assignedLocation !== 'either' && location.label === 'not_configured') return NextResponse.json({ error: 'Your assigned location is not configured. Please contact your manager.', code: 'LOCATION_NOT_CONFIGURED' }, { status: 409 });
     if (employee.assignedLocation !== 'either' && location.label !== employee.assignedLocation) return NextResponse.json({ error: 'You must be within 1 km of your assigned location.' }, { status: 400 });
     const checkOut = { time: now, lat, lng, photo, faceMatchDistance: distance, faceMatchStatus: 'verified', locationLabel: location.label, distanceMeters: location.distanceMeters };
     const record = await Attendance.findOneAndUpdate({ _id: existing._id, 'checkOut.time': { $exists: false } }, { $set: { checkOut, updatedAt: now } }, { new: true });

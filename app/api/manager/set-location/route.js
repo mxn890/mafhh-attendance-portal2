@@ -11,7 +11,7 @@ export async function POST(request) {
 
   try {
     const { employeeId, assignedLocation } = await request.json();
-    if (!employeeId || !['office', 'airport', 'either'].includes(assignedLocation)) {
+    if (!employeeId || !['office', 'airport', 'quarantine', 'either'].includes(assignedLocation)) {
       return NextResponse.json({ error: 'A valid employeeId and assignedLocation are required.' }, { status: 400 });
     }
 

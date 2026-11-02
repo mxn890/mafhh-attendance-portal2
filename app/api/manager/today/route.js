@@ -1,6 +1,7 @@
+import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
-import { Employee, Attendance, AttendanceConfig } from '@/app/lib/db/models';
+import { Employee, Attendance } from '@/app/lib/db/models';
 import { dayPKT, addDays, shiftDate, missingStatus } from '@/app/lib/attendance-policy';
 import { getSession } from '@/app/lib/auth/jwt';
 
@@ -18,7 +19,7 @@ export async function GET() {
   await connectDB();
   const date = todayPKT();
   const employees = await Employee.find({ status: 'active' }).sort({ department: 1, name: 1 });
-  const config = (await AttendanceConfig.findOne({ key: 'default' })) || {};
+  const config = (await getAttendanceConfig()) || {};
   const now = new Date();
   const records = await Attendance.find({ date: { $gte: addDays(date, -1), $lte: date } });
   const byEmployeeId = new Map(records.map((r) => [r.employeeId + ":" + r.date, r]));

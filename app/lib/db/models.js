@@ -27,7 +27,7 @@ const employeeSchema = new mongoose.Schema({
   // default) allows both configured zones — safe until a manager
   // confirms each person's actual base, so no one gets locked out by an
   // unset default.
-  assignedLocation: { type: String, enum: ['office', 'airport', 'either'], default: 'either' },
+  assignedLocation: { type: String, enum: ['office', 'airport', 'quarantine', 'either'], default: 'either' },
 
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
@@ -40,7 +40,7 @@ const attendanceEventSchema = new mongoose.Schema({
   photo: String,
   faceMatchDistance: Number,
   faceMatchStatus: { type: String, enum: ['verified', 'needs_review', 'no_face_detected'], default: 'needs_review' },
-  locationLabel: { type: String, enum: ['office', 'airport', 'out_of_range', 'not_configured'], default: 'not_configured' },
+  locationLabel: { type: String, enum: ['office', 'airport', 'quarantine', 'out_of_range', 'not_configured'], default: 'not_configured' },
   distanceMeters: Number,
 }, { _id: false });
 
@@ -62,6 +62,8 @@ const attendanceConfigSchema = new mongoose.Schema({
   key: { type: String, default: 'default', unique: true },
   officeLocation: { address: String, lat: { type: Number, default: null }, lng: { type: Number, default: null }, radiusMeters: { type: Number, default: 1000 } },
   airportLocation: { address: String, lat: { type: Number, default: null }, lng: { type: Number, default: null }, radiusMeters: { type: Number, default: 1000 } },
+  quarantineLocation: { address: String, lat: { type: Number, default: null }, lng: { type: Number, default: null }, radiusMeters: { type: Number, default: 1000 } },
+  locationSetupVersion: String,
   shiftRules: {
     startTime: { type: String, default: '09:00' },
     lateAfter: { type: String, default: '09:30' },

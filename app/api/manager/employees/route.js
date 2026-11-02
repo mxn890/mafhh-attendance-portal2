@@ -14,7 +14,7 @@ function fields(body) {
   const assignedLocation = body.assignedLocation || 'either';
   if (!name || name.length > 120 || !department || department.length > 120) throw Error('Enter a name and department (up to 120 characters).');
   if (!/^\d{2}:\d{2}$/.test(shiftStart) || !/^\d{2}:\d{2}$/.test(shiftEnd) || clockMinutes(shiftStart) == null || clockMinutes(shiftEnd) == null || !parseShift({ shiftStart, shiftEnd })) throw Error('Enter valid, different shift start and end times.');
-  if (!['office', 'airport', 'either'].includes(assignedLocation)) throw Error('Choose a valid work location.');
+  if (!['office', 'airport', 'quarantine', 'either'].includes(assignedLocation)) throw Error('Choose a valid work location.');
   return { name, department, shiftStart, shiftEnd, shift_timing: shiftStart + ' – ' + shiftEnd, assignedLocation };
 }
 export async function GET() {

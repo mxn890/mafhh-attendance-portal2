@@ -1,3 +1,4 @@
+import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
 import { Employee, Attendance } from '@/app/lib/db/models';
@@ -18,7 +19,7 @@ export async function GET() {
   const employee = await Employee.findOne({ employeeId: session.userId });
   if (!employee) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
 
-  const config = (await AttendanceConfig.findOne({ key: 'default' })) || {};
+  const config = (await getAttendanceConfig()) || {};
   let today = await Attendance.findOne({ employeeId: employee.employeeId, date: shiftDate(employee, config) });
   if (!today?.checkIn?.time) {
     const open = await Attendance.findOne({ employeeId: employee.employeeId, date: { $gte: addDays(dayPKT(), -1), $lte: dayPKT() }, 'checkIn.time': { $exists: true }, 'checkOut.time': { $exists: false } }).sort({ 'checkIn.time': -1 });

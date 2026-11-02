@@ -1,6 +1,7 @@
+import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
-import { AttendanceConfig, Employee } from '@/app/lib/db/models';
+import { Employee } from '@/app/lib/db/models';
 import { validCoordinates } from '@/app/lib/attendance-policy';
 import { getSession } from '@/app/lib/auth/jwt';
 import { classifyAssignedLocation } from '@/app/lib/geo';
@@ -14,7 +15,7 @@ export async function GET(request) {
   if (!validCoordinates(lat, lng)) return NextResponse.json({ error: 'lat/lng required.' }, { status: 400 });
 
   await connectDB();
-  const config = await AttendanceConfig.findOne({ key: 'default' });
+  const config = await getAttendanceConfig();
   const employee = await Employee.findOne({ employeeId: session.userId }).select('assignedLocation');
   const result = classifyAssignedLocation(lat, lng, config, employee?.assignedLocation);
   result.exempt = employee?.assignedLocation === 'either';

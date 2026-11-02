@@ -7,7 +7,7 @@ import EmployeeNav from './components/EmployeeNav';
 
 const SelfieCapture = dynamic(() => import('./components/SelfieCapture'), { ssr: false });
 
-const LOCATION_LABEL = { office: 'Office', airport: 'Airport', out_of_range: 'Out of range', not_configured: 'Location not set up yet' };
+const LOCATION_LABEL = { office: 'Office', airport: 'Airport', quarantine: 'Quarantine (AQD)', out_of_range: 'Out of range', not_configured: 'Location not set up yet' };
 
 function fmtTime(iso) {
   if (!iso) return null;
@@ -139,7 +139,7 @@ export default function HomePage() {
   if (error && !me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-signal text-sm">{error}</p></div>;
   if (!me) return <div className="min-h-screen flex items-center justify-center bg-mist"><p className="text-slate text-sm">Loading…</p></div>;
 
-  const withinRadius = liveLocation?.exempt || liveLocation && liveLocation !== 'error' && (liveLocation.label === 'office' || liveLocation.label === 'airport');
+  const withinRadius = liveLocation?.exempt || liveLocation && liveLocation !== 'error' && (liveLocation.label === 'office' || liveLocation.label === 'airport' || liveLocation.label === 'quarantine');
 
   return (
     <div className="min-h-screen bg-mist">

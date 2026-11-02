@@ -54,6 +54,28 @@ await test('7-day and leap-month ranges, reject invalid inputs',()=>{const v=P.r
 await test('Reject NaN/nonfinite face vectors and invalid coordinates',()=>{assert.equal(P.validDescriptor(Array(128).fill(NaN)),false);assert.equal(P.faceDistance(Array(128).fill(0),Array(128).fill(Infinity)),Infinity);assert.equal(P.validCoordinates(91,0),false);});
 await test('Geofence exactly 1 km regardless of old 3 km DB value',()=>{const cfg={officeLocation:{lat:0,lng:0,radiusMeters:3000}};assert.equal(geo.classifyLocation(0,0.0089,cfg).label,'office');assert.equal(geo.classifyLocation(0,0.0091,cfg).label,'out_of_range');});
 await test('Assigned airport not rejected by overlapping office fence',()=>{const cfg={officeLocation:{lat:0,lng:0},airportLocation:{lat:0,lng:0}};assert.equal(geo.classifyAssignedLocation(0,0,cfg,'airport').label,'airport');});
+const configHelper=await moduleOf('app/lib/attendance-config.js');
+await test('Missing config initializes all three client-approved locations',async()=>{
+ data.attendanceconfigs.length=0;
+ const c=await configHelper.getAttendanceConfig();
+ assert.equal(c.officeLocation.lat,31.49377697719845);assert.equal(c.officeLocation.lng,74.41923897290278);
+ assert.equal(c.airportLocation.lat,31.5216);assert.equal(c.quarantineLocation.lat,31.5645);
+ assert.equal(geo.classifyAssignedLocation(31.5645,74.401,c,'quarantine').label,'quarantine');
+ assert.equal(geo.classifyAssignedLocation(31.5645+0.01,74.401,c,'quarantine').label,'out_of_range');
+ assert.equal(geo.classifyAssignedLocation(31.49377697719845,74.41923897290278,c,'office').label,'office');
+});
+await test('Config repair preserves valid airport, shifts and later saved pins',async()=>{
+ data.attendanceconfigs.length=0;data.attendanceconfigs.push({key:'default',airportLocation:{lat:31.52,lng:74.4},shiftRules:{startTime:'10:00'}});
+ let c=await configHelper.getAttendanceConfig();assert.equal(c.airportLocation.lat,31.52);assert.equal(c.shiftRules.startTime,'10:00');
+ data.attendanceconfigs[0].officeLocation.lat=31.49;
+ c=await configHelper.getAttendanceConfig();assert.equal(c.officeLocation.lat,31.49);
+});
+await test('Invalid/missing assigned pin cannot fall back to a different zone',()=>{
+ const c={officeLocation:{lat:NaN,lng:74},airportLocation:{lat:31.52,lng:74.4}};
+ assert.equal(geo.classifyAssignedLocation(31.52,74.4,c,'office').label,'not_configured');
+ assert.equal(geo.classifyAssignedLocation(31.52,74.4,c,'quarantine').label,'not_configured');
+});
+data.attendanceconfigs.length=0;
 const face=Array(128).fill(0),emp={employeeId:'MAFHH-001',name:'Test Employee',status:'active',attendanceRole:'employee',mustChangePassword:false,isEnrolled:true,faceDescriptor:face,assignedLocation:'either',shift_timing:'9AM - 6PM',_id:'person1'};
 data.employees.push(emp);data.attendanceconfigs.push({key:'default',officeLocation:{lat:0,lng:0,radiusMeters:3000}});session={userId:emp.employeeId,role:'employee'};
 const checkin=await moduleOf('app/api/checkin/route.js');
@@ -64,6 +86,12 @@ await test('Simultaneous check-ins create only one original event',async()=>{dat
 await test('Office employee outside 1 km rejected',async()=>{data.attendances.length=0;emp.assignedLocation='office';assert.equal((await checkin.POST(req(valid))).status,400);emp.assignedLocation='either';});
 await test('Invalid face descriptor cannot bypass matching',async()=>{assert.equal((await checkin.POST(req({...valid,faceDescriptor:Array(128).fill(NaN)}))).status,400);});
 await test('Reset accounts must complete password and selfie setup',async()=>{emp.mustChangePassword=true;assert.equal((await checkin.POST(req(valid))).status,403);emp.mustChangePassword=false;});
+await test('Missing assigned pin returns configuration error instead of out-of-range error',async()=>{
+ const c=data.attendanceconfigs[0], saved=c.officeLocation;
+ c.officeLocation={lat:null,lng:null};emp.assignedLocation='office';data.attendances.length=0;
+ const result=await checkin.POST(req(valid));assert.equal(result.status,409);assert.equal(result.body.code,'LOCATION_NOT_CONFIGURED');
+ c.officeLocation=saved;emp.assignedLocation='either';
+});
 const employees=await moduleOf('app/api/manager/employees/route.js');
 await test('Employee cannot access manager roster or add accounts',async()=>{assert.equal((await employees.GET()).status,403);assert.equal((await employees.POST(req({}))).status,403);});
 session={userId:'CEO',role:'manager'};

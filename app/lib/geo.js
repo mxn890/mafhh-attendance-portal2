@@ -13,37 +13,30 @@ export function distanceMeters(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
-/**
- * Checks a GPS point against the office and airport geofences from
- * AttendanceConfig. Returns { label, distanceMeters } — label is
- * 'office' | 'airport' | 'out_of_range' | 'not_configured'.
- */
+/** Classify only valid configured pins, with a fixed 1 km attendance radius. */
 export function classifyLocation(lat, lng, config) {
   const candidates = [];
-  const office = config?.officeLocation;
-  const airport = config?.airportLocation;
-
-  if (office?.lat != null && office?.lng != null) {
-    const d = distanceMeters(lat, lng, office.lat, office.lng);
-    candidates.push({ label: 'office', distanceMeters: d, withinRadius: d <= 1000 });
+  for (const label of ['office', 'airport', 'quarantine']) {
+    const zone = config?.[label + 'Location'];
+    if (!validLocationPin(zone)) continue;
+    const d = distanceMeters(lat, lng, zone.lat, zone.lng);
+    candidates.push({ label, distanceMeters: d, withinRadius: d <= 1000 });
   }
-  if (airport?.lat != null && airport?.lng != null) {
-    const d = distanceMeters(lat, lng, airport.lat, airport.lng);
-    candidates.push({ label: 'airport', distanceMeters: d, withinRadius: d <= 1000 });
-  }
-
-  if (candidates.length === 0) return { label: 'not_configured', distanceMeters: null };
-
-  const withinAny = candidates.find((c) => c.withinRadius);
-  if (withinAny) return { label: withinAny.label, distanceMeters: Math.round(withinAny.distanceMeters) };
-
-  const nearest = candidates.reduce((a, b) => (a.distanceMeters < b.distanceMeters ? a : b));
-  return { label: 'out_of_range', distanceMeters: Math.round(nearest.distanceMeters) };
+  if (!candidates.length) return { label: 'not_configured', distanceMeters: null };
+  const within = candidates.find(c => c.withinRadius);
+  const nearest = within || candidates.reduce((a,b) => a.distanceMeters < b.distanceMeters ? a : b);
+  return { label: within ? nearest.label : 'out_of_range', distanceMeters: Math.round(nearest.distanceMeters) };
 }
 
+export function validLocationPin(zone) {
+  return typeof zone?.lat === 'number' && Number.isFinite(zone.lat) && Math.abs(zone.lat) <= 90 &&
+    typeof zone?.lng === 'number' && Number.isFinite(zone.lng) && Math.abs(zone.lng) <= 180;
+}
 
 export function classifyAssignedLocation(lat, lng, config, assignedLocation) {
-  if (assignedLocation === 'office') return classifyLocation(lat, lng, { officeLocation: config?.officeLocation });
-  if (assignedLocation === 'airport') return classifyLocation(lat, lng, { airportLocation: config?.airportLocation });
+  if (['office', 'airport', 'quarantine'].includes(assignedLocation)) {
+    const field = assignedLocation + 'Location';
+    return classifyLocation(lat, lng, { [field]: config?.[field] });
+  }
   return classifyLocation(lat, lng, config);
 }

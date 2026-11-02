@@ -1,6 +1,7 @@
+import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
-import { Employee, Attendance, AttendanceConfig } from '@/app/lib/db/models';
+import { Employee, Attendance } from '@/app/lib/db/models';
 import { shiftDate } from '@/app/lib/attendance-policy';
 import { getSession } from '@/app/lib/auth/jwt';
 
@@ -23,7 +24,7 @@ export async function POST(request) {
     const employee = await Employee.findOne({ employeeId });
     if (!employee) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
 
-    const date = shiftDate(employee, (await AttendanceConfig.findOne({ key: 'default' })) || {});
+    const date = shiftDate(employee, (await getAttendanceConfig()) || {});
     const existing = await Attendance.findOne({ employeeId, date });
     if (existing?.checkIn?.time) return NextResponse.json({ error: 'This employee already checked in. Review attendance instead of replacing it with leave.' }, { status: 409 });
     await Attendance.findOneAndUpdate(
