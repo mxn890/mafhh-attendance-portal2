@@ -222,7 +222,7 @@ export default function ManagerPage() {
                       <option value="either">Either</option>
                       <option value="office">Office only</option>
                       <option value="airport">Airport only</option>
-                      <option value="quarantine">Quarantine (AQD) only</option>
+                      <option value="quarantine">Quarantine (AQD) only</option><option value="office_quarantine">Office + Quarantine (AQD)</option><option value="office_airport">Office + Airport</option><option value="airport_quarantine">Airport + Quarantine (AQD)</option>
                     </select>
                   </td>}
                   <td className="px-4 py-3 font-tabular text-ink">

@@ -33,10 +33,22 @@ export function validLocationPin(zone) {
     typeof zone?.lng === 'number' && Number.isFinite(zone.lng) && Math.abs(zone.lng) <= 180;
 }
 
+export function allowedLocationLabels(assignedLocation) {
+  const assignments = {
+    office: ['office'], airport: ['airport'], quarantine: ['quarantine'],
+    office_quarantine: ['office', 'quarantine'],
+    office_airport: ['office', 'airport'],
+    airport_quarantine: ['airport', 'quarantine'],
+    either: ['office', 'airport', 'quarantine'],
+  };
+  return assignments[assignedLocation] || [];
+}
+
 export function classifyAssignedLocation(lat, lng, config, assignedLocation) {
-  if (['office', 'airport', 'quarantine'].includes(assignedLocation)) {
-    const field = assignedLocation + 'Location';
-    return classifyLocation(lat, lng, { [field]: config?.[field] });
+  const selected = {};
+  for (const label of allowedLocationLabels(assignedLocation)) {
+    const field = label + 'Location';
+    selected[field] = config?.[field];
   }
-  return classifyLocation(lat, lng, config);
+  return classifyLocation(lat, lng, selected);
 }

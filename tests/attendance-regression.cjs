@@ -140,5 +140,31 @@ await test('Single reset optionally clears enrollment; employee access and CEO t
  session={userId:emp.employeeId,role:'employee'};assert.equal((await singleReset.POST(req({employeeId:emp.employeeId}))).status,403);
 });
 const csv=await moduleOf('app/lib/csv.js');await test('CSV quotes names and blocks spreadsheet formulas',()=>{assert.equal(csv.csvCell('a,"b"'),'"a,""b"""');assert.equal(csv.csvCell('=SUM(1,2)'),'"\'=SUM(1,2)"');});
+await test('Every two-location assignment accepts either pin and rejects the third',()=>{
+ const config={officeLocation:{lat:31.49377697719845,lng:74.41923897290278},airportLocation:{lat:31.5216,lng:74.4036},quarantineLocation:{lat:31.5645,lng:74.401}};
+ for(const [assignment,labels] of Object.entries({office_quarantine:['office','quarantine'],office_airport:['office','airport'],airport_quarantine:['airport','quarantine']})) {
+  for(const label of labels){const pin=config[label+'Location'];assert.equal(geo.classifyAssignedLocation(pin.lat,pin.lng,config,assignment).label,label);}
+  const excluded=['office','airport','quarantine'].find(x=>!labels.includes(x)),pin=config[excluded+'Location'];
+  assert.equal(geo.classifyAssignedLocation(pin.lat,pin.lng,config,assignment).label,'out_of_range');
+ }
+ assert.equal(geo.classifyAssignedLocation(0,0,config,'invalid').label,'not_configured');
+});
+await test('Office check-in then quarantine checkout succeeds; third site and outside both rejected',async()=>{
+ session={userId:emp.employeeId,role:'employee'};clock='2026-10-31T04:00:00Z';emp.status='active';emp.mustChangePassword=false;emp.isEnrolled=true;emp.faceDescriptor=face;emp.assignedLocation='office_quarantine';
+ const c=data.attendanceconfigs[0];c.officeLocation={lat:31.49377697719845,lng:74.41923897290278};c.quarantineLocation={lat:31.5645,lng:74.401};c.airportLocation={lat:31.5216,lng:74.4036};
+ data.attendances.length=0;
+ assert.equal((await checkin.POST(req({...valid,...c.airportLocation}))).status,400);
+ const inside=await checkin.POST(req({...valid,...c.officeLocation}));assert.equal(inside.status,200);assert.equal(inside.body.locationLabel,'office');
+ assert.equal((await checkout.POST(req({...valid,lat:0,lng:0}))).status,400);
+ const out=await checkout.POST(req({...valid,...c.quarantineLocation}));assert.equal(out.status,200);assert.equal(out.body.locationLabel,'quarantine');
+});
+await test('Manager can save a pair; invalid pair and employee access rejected',async()=>{
+ const route=await moduleOf('app/api/manager/set-location/route.js');session={userId:'CEO',role:'manager'};
+ assert.equal((await route.POST(req({employeeId:emp.employeeId,assignedLocation:'office_airport'}))).status,200);
+ assert.equal(emp.assignedLocation,'office_airport');
+ assert.equal((await route.POST(req({employeeId:emp.employeeId,assignedLocation:'office_anywhere'}))).status,400);
+ session={userId:emp.employeeId,role:'employee'};
+ assert.equal((await route.POST(req({employeeId:emp.employeeId,assignedLocation:'office_quarantine'}))).status,403);
+});
 console.log('\nATTENDANCE REGRESSION TESTS:',passed,'PASSED (in-memory data store, real handlers/policy/bcrypt; no live records changed).');
 })().catch(e=>{console.error(e);process.exitCode=1;});

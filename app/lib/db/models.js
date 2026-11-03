@@ -27,7 +27,7 @@ const employeeSchema = new mongoose.Schema({
   // default) allows both configured zones — safe until a manager
   // confirms each person's actual base, so no one gets locked out by an
   // unset default.
-  assignedLocation: { type: String, enum: ['office', 'airport', 'quarantine', 'either'], default: 'either' },
+  assignedLocation: { type: String, enum: ['office', 'airport', 'quarantine', 'office_quarantine', 'office_airport', 'airport_quarantine', 'either'], default: 'either' },
 
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

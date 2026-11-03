@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
 import { Employee, Attendance } from '@/app/lib/db/models';
 import { getSession } from '@/app/lib/auth/jwt';
-import { classifyAssignedLocation } from '@/app/lib/geo';
+import { classifyAssignedLocation, allowedLocationLabels } from '@/app/lib/geo';
 import { validCoordinates, faceDistance, attendanceReady, shiftDate, checkInStatus } from '@/app/lib/attendance-policy';
 
 export async function POST(request) {
@@ -24,7 +24,7 @@ export async function POST(request) {
     if (distance > 0.5) return NextResponse.json({ error: 'Selfie did not match. Please try again with better lighting.' }, { status: 400 });
     const location = classifyAssignedLocation(lat, lng, config, employee.assignedLocation);
     if (employee.assignedLocation !== 'either' && location.label === 'not_configured') return NextResponse.json({ error: 'Your assigned location is not configured. Please contact your manager.', code: 'LOCATION_NOT_CONFIGURED' }, { status: 409 });
-    if (employee.assignedLocation !== 'either' && location.label !== employee.assignedLocation) return NextResponse.json({ error: 'You must be within 1 km of your assigned location.' }, { status: 400 });
+    if (employee.assignedLocation !== 'either' && !allowedLocationLabels(employee.assignedLocation).includes(location.label)) return NextResponse.json({ error: 'You must be within 1 km of one of your assigned locations.' }, { status: 400 });
     let status;
     try { status = checkInStatus(employee, config, now, date); }
     catch (e) { return NextResponse.json({ error: e.message }, { status: 409 }); }
