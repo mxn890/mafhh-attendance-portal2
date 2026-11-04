@@ -74,7 +74,7 @@ export default function HomePage() {
             .catch(() => setLiveLocation('error'));
         },
         () => setLiveLocation('error'),
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
       );
     }
     checkNow();
@@ -109,7 +109,7 @@ export default function HomePage() {
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
         () => reject(new Error('Please allow location access to mark attendance.')),
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
       );
     });
   }

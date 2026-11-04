@@ -64,3 +64,14 @@ export function reportRange(params, now = new Date()) {
   const today = dayPKT(now);
   return { start: addDays(today, 1 - days), end: addDays(today, 1), label: 'Last ' + days + ' days' };
 }
+
+// Exactly 15 minutes early is dashboard-only; compare seconds before rounding.
+export function earlyCheckoutPolicy(employee, config, date, now = new Date()) {
+  const window = shiftWindow(employee, config, date);
+  if (!window) return { policyVersion: 'early-checkout-v1', earlySeconds: 0, earlyMinutes: 0, whatsappRequired: false, notificationState: 'shift-not-set' };
+  const earlySeconds = Math.max(0, Math.ceil((window.end - +now) / 1000));
+  const whatsappRequired = window.end - +now > 15 * 60000;
+  return { policyVersion: 'early-checkout-v1', shiftEnd: new Date(window.end), earlySeconds,
+    earlyMinutes: Math.ceil(earlySeconds / 60), whatsappRequired,
+    notificationState: whatsappRequired ? 'pending' : 'not-required' };
+}

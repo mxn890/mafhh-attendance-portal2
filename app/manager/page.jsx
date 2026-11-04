@@ -232,6 +232,8 @@ export default function ManagerPage() {
                   {showDetails && <td className="px-4 py-3"><LocationCell label={r.checkInLocation} distance={r.checkInDistance} assignedLocation={r.assignedLocation} /></td>}
                   <td className="px-4 py-3 font-tabular text-ink">
                     {fmtTime(r.checkOutTime)}
+                    {r.earlyCheckout?.earlySeconds > 0 && <span className="block text-xs text-warn">{r.earlyCheckout.earlyMinutes} min early · {r.earlyCheckout.whatsappRequired ? (r.earlyCheckout.notificationState === 'queued' ? 'WhatsApp queued' : 'WhatsApp pending') : 'Dashboard only'}</span>}
+                    {r.earlyCheckout?.notificationState === 'shift-not-set' && <span className="block text-xs text-warn">Early checkout not assessed: shift not set</span>}
                     {r.checkOutFaceMatch === 'needs_review' && <span className="ml-1 text-warn">●</span>}
                   </td>
                   {showDetails && <td className="px-4 py-3"><LocationCell label={r.checkOutLocation} distance={r.checkOutDistance} assignedLocation={r.assignedLocation} /></td>}
@@ -297,7 +299,9 @@ export default function ManagerPage() {
                     {historyData.records.map((r) => (
                       <div key={r.date} className="flex items-center justify-between py-2 text-sm">
                         <span className="font-tabular text-slate">{r.date}</span>
-                        <span className="font-tabular text-ink">{fmtTime(r.checkInTime)} → {fmtTime(r.checkOutTime)}</span>
+                        <span className="font-tabular text-ink">{fmtTime(r.checkInTime)} → {fmtTime(r.checkOutTime)}
+                    {r.earlyCheckout?.earlySeconds > 0 && <span className="block text-xs text-warn">{r.earlyCheckout.earlyMinutes} min early · {r.earlyCheckout.whatsappRequired ? (r.earlyCheckout.notificationState === 'queued' ? 'WhatsApp queued' : 'WhatsApp pending') : 'Dashboard only'}</span>}
+                    {r.earlyCheckout?.notificationState === 'shift-not-set' && <span className="block text-xs text-warn">Early checkout not assessed: shift not set</span>}</span>
                         <span className={STATUS_BADGE[r.status] || 'badge-info'}>{STATUS_LABEL[r.status] || r.status}</span>
                       </div>
                     ))}

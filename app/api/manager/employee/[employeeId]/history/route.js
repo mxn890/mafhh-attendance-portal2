@@ -31,6 +31,7 @@ export async function GET(request, { params }) {
       status: r.status,
       checkInTime: r.checkIn?.time || null,
       checkOutTime: r.checkOut?.time || null,
+      earlyCheckout: r.earlyCheckout || null,
       checkInLocation: r.checkIn?.locationLabel || null,
       checkInPhoto: r.checkIn?.photo || null,
       checkOutPhoto: r.checkOut?.photo || null,

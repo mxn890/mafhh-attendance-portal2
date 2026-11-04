@@ -4,7 +4,7 @@ import connectDB from '@/app/lib/db/connect';
 import { Employee, Attendance } from '@/app/lib/db/models';
 import { getSession } from '@/app/lib/auth/jwt';
 import { classifyAssignedLocation, allowedLocationLabels } from '@/app/lib/geo';
-import { validCoordinates, faceDistance, attendanceReady, dayPKT, addDays } from '@/app/lib/attendance-policy';
+import { validCoordinates, faceDistance, attendanceReady, dayPKT, addDays, earlyCheckoutPolicy } from '@/app/lib/attendance-policy';
 export async function POST(request) {
   try {
     const session = await getSession();
@@ -25,7 +25,8 @@ export async function POST(request) {
     if (employee.assignedLocation !== 'either' && location.label === 'not_configured') return NextResponse.json({ error: 'Your assigned location is not configured. Please contact your manager.', code: 'LOCATION_NOT_CONFIGURED' }, { status: 409 });
     if (employee.assignedLocation !== 'either' && !allowedLocationLabels(employee.assignedLocation).includes(location.label)) return NextResponse.json({ error: 'You must be within 1 km of one of your assigned locations.' }, { status: 400 });
     const checkOut = { time: now, lat, lng, photo, faceMatchDistance: distance, faceMatchStatus: 'verified', locationLabel: location.label, distanceMeters: location.distanceMeters };
-    const record = await Attendance.findOneAndUpdate({ _id: existing._id, 'checkOut.time': { $exists: false } }, { $set: { checkOut, updatedAt: now } }, { new: true });
-    return NextResponse.json({ ok: true, alreadyCheckedOut: !record, faceMatchStatus: 'verified', locationLabel: location.label });
+    const earlyCheckout = earlyCheckoutPolicy(employee, config, existing.date, now);
+    const record = await Attendance.findOneAndUpdate({ _id: existing._id, 'checkOut.time': { $exists: false } }, { $set: { checkOut, earlyCheckout, updatedAt: now } }, { new: true });
+    return NextResponse.json({ ok: true, alreadyCheckedOut: !record, faceMatchStatus: 'verified', locationLabel: location.label, earlyCheckout: record?.earlyCheckout || null });
   } catch { return NextResponse.json({ error: 'Could not record attendance. Please try again.' }, { status: 500 }); }
 }

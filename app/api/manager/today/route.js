@@ -37,6 +37,7 @@ export async function GET() {
       attendanceDate: rec?.date || shiftDate(e, config, now),
       checkInTime: rec?.checkIn?.time || null,
       checkOutTime: rec?.checkOut?.time || null,
+      earlyCheckout: rec?.earlyCheckout || null,
       checkInFaceMatch: rec?.checkIn?.faceMatchStatus || null,
       checkOutFaceMatch: rec?.checkOut?.faceMatchStatus || null,
       checkInLocation: rec?.checkIn?.locationLabel || null,

@@ -3,9 +3,19 @@ import { validLocationPin } from './geo';
 
 // One-time client-approved location repair. Later reads preserve saved changes.
 const LOCATION_VERSION = '2026-11-office-aqd-v1';
+const QUARANTINE_VERSION = '2026-11-04-shared-map-v2';
+async function correctQuarantine(config) {
+  if (config?.quarantineSetupVersion === QUARANTINE_VERSION) return config;
+  await AttendanceConfig.updateOne(
+    { key: 'default', quarantineSetupVersion: { $ne: QUARANTINE_VERSION } },
+    { $set: { 'quarantineLocation.lat': 31.5672, 'quarantineLocation.lng': 74.427443,
+      'quarantineLocation.radiusMeters': 1000, quarantineSetupVersion: QUARANTINE_VERSION } }
+  );
+  return AttendanceConfig.findOne({ key: 'default' });
+}
 export async function getAttendanceConfig() {
   let config = await AttendanceConfig.findOne({ key: 'default' });
-  if (config?.locationSetupVersion === LOCATION_VERSION) return config;
+  if (config?.locationSetupVersion === LOCATION_VERSION) return correctQuarantine(config);
   if (!config) {
     try {
       await AttendanceConfig.updateOne({ key: 'default' }, { $setOnInsert: { key: 'default' } }, { upsert: true });
@@ -32,5 +42,5 @@ export async function getAttendanceConfig() {
     { key: 'default', locationSetupVersion: { $ne: LOCATION_VERSION } },
     { $set: changes }
   );
-  return AttendanceConfig.findOne({ key: 'default' });
+  return correctQuarantine(await AttendanceConfig.findOne({ key: 'default' }));
 }

@@ -59,9 +59,9 @@ await test('Missing config initializes all three client-approved locations',asyn
  data.attendanceconfigs.length=0;
  const c=await configHelper.getAttendanceConfig();
  assert.equal(c.officeLocation.lat,31.49377697719845);assert.equal(c.officeLocation.lng,74.41923897290278);
- assert.equal(c.airportLocation.lat,31.5216);assert.equal(c.quarantineLocation.lat,31.5645);
- assert.equal(geo.classifyAssignedLocation(31.5645,74.401,c,'quarantine').label,'quarantine');
- assert.equal(geo.classifyAssignedLocation(31.5645+0.01,74.401,c,'quarantine').label,'out_of_range');
+ assert.equal(c.airportLocation.lat,31.5216);assert.equal(c.quarantineLocation.lat,31.5672);
+ assert.equal(geo.classifyAssignedLocation(31.5672,74.427443,c,'quarantine').label,'quarantine');
+ assert.equal(geo.classifyAssignedLocation(31.5672+0.01,74.427443,c,'quarantine').label,'out_of_range');
  assert.equal(geo.classifyAssignedLocation(31.49377697719845,74.41923897290278,c,'office').label,'office');
 });
 await test('Config repair preserves valid airport, shifts and later saved pins',async()=>{
@@ -165,6 +165,41 @@ await test('Manager can save a pair; invalid pair and employee access rejected',
  assert.equal((await route.POST(req({employeeId:emp.employeeId,assignedLocation:'office_anywhere'}))).status,400);
  session={userId:emp.employeeId,role:'employee'};
  assert.equal((await route.POST(req({employeeId:emp.employeeId,assignedLocation:'office_quarantine'}))).status,403);
+});
+
+await test('Corrected AQD pin migrates once without replacing office, airport or shifts',async()=>{
+ const c=data.attendanceconfigs[0];c.quarantineSetupVersion='old';c.quarantineLocation={lat:31.5645,lng:74.401};
+ const office=clone(c.officeLocation),airport=clone(c.airportLocation),rules=clone(c.shiftRules);
+ const corrected=await configHelper.getAttendanceConfig();
+ assert.equal(corrected.quarantineLocation.lat,31.5672);assert.equal(corrected.quarantineLocation.lng,74.427443);
+ assert.deepEqual(corrected.officeLocation,office);assert.deepEqual(corrected.airportLocation,airport);assert.deepEqual(corrected.shiftRules,rules);
+ assert.equal(geo.classifyAssignedLocation(31.5672,74.427443,corrected,'quarantine').label,'quarantine');
+ assert.equal(geo.classifyAssignedLocation(31.5672,74.427443,{quarantineLocation:{lat:31.5645,lng:74.401}},'quarantine').label,'out_of_range');
+ data.attendanceconfigs[0].quarantineLocation.lat=31.5673;
+ assert.equal((await configHelper.getAttendanceConfig()).quarantineLocation.lat,31.5673);
+});
+await test('Early checkout: 0, 14:59, exactly 15 and 15:01 minutes before individual shift end',()=>{
+ const e={shift_timing:'10AM - 7PM'};
+ for(const [time,seconds,notify] of [['14:00:00',0,false],['13:45:01',899,false],['13:45:00',900,false],['13:44:59',901,true]]){
+  const p=P.earlyCheckoutPolicy(e,{},'2026-10-31',new Date('2026-10-31T'+time+'Z'));assert.equal(p.earlySeconds,seconds);assert.equal(p.whatsappRequired,notify);
+ }
+ assert.equal(P.earlyCheckoutPolicy({shift_timing:'bad'},{},'2026-10-31').notificationState,'shift-not-set');
+});
+await test('Overnight checkout compares the next morning with the original shift date',()=>{
+ const e={shift_timing:'9PM - 6AM'};
+ assert.equal(P.earlyCheckoutPolicy(e,{},'2026-10-30',new Date('2026-10-31T00:45:00Z')).whatsappRequired,false);
+ assert.equal(P.earlyCheckoutPolicy(e,{},'2026-10-30',new Date('2026-10-31T00:44:59Z')).whatsappRequired,true);
+ assert.equal(P.earlyCheckoutPolicy(e,{},'2026-10-30',new Date('2026-10-31T01:10:00Z')).earlyMinutes,0);
+});
+await test('Actual checkout stores atomic notification intent; duplicate cannot overwrite time or alert',async()=>{
+ session={userId:emp.employeeId,role:'employee'};emp.assignedLocation='quarantine';emp.shift_timing='9AM - 6PM';clock='2026-10-31T12:44:59Z';
+ data.attendances.length=0;data.attendances.push({_id:'early-test',employeeId:emp.employeeId,employeeName:emp.name,date:'2026-10-31',checkIn:{time:new Date('2026-10-31T04:00:00Z')},status:'OnTime'});
+ const c=data.attendanceconfigs[0];const r=await checkout.POST(req({...valid,...c.quarantineLocation}));assert.equal(r.status,200);
+ assert.equal(data.attendances[0].earlyCheckout.whatsappRequired,true);assert.equal(data.attendances[0].earlyCheckout.notificationState,'pending');
+ const before=clone(data.attendances[0]);clock='2026-10-31T12:50:00Z';assert.equal((await checkout.POST(req({...valid,...c.quarantineLocation}))).status,409);assert.deepEqual(data.attendances[0],before);
+ session={userId:'CEO',role:'manager'};
+ const view=await today.GET();assert.equal(view.body.rows.find(x=>x.employeeId===emp.employeeId).earlyCheckout.whatsappRequired,true);
+ const report=await reports.GET(req({},'days=7'));assert.equal(report.body.rows[0].earlyCheckout.whatsappRequired,true);
 });
 console.log('\nATTENDANCE REGRESSION TESTS:',passed,'PASSED (in-memory data store, real handlers/policy/bcrypt; no live records changed).');
 })().catch(e=>{console.error(e);process.exitCode=1;});
