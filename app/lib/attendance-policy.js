@@ -1,4 +1,5 @@
 // Shared server policy. All attendance dates and shift boundaries use Pakistan time.
+import { isOffDay } from './work-calendar';
 export const GRACE_MINUTES = 30;
 export const LOCATION_RADIUS_METRES = 1000;
 const DAY = 86400000;
@@ -36,11 +37,13 @@ export function shiftWindow(employee, config = {}, date = dayPKT()) {
   return { start: midnight + shift.start * 60000, end: midnight + (shift.end + (shift.overnight ? 1440 : 0)) * 60000 };
 }
 export function checkInStatus(employee, config, now, date = shiftDate(employee, config, now)) {
+  if (isOffDay(employee, date)) return 'OnTime';
   const window = shiftWindow(employee, config, date);
   if (!window) throw new Error('Shift is not configured. Ask your manager to set a valid shift.');
   return +now > window.start + GRACE_MINUTES * 60000 ? 'Late' : 'OnTime';
 }
 export function missingStatus(employee, config, now = new Date(), date = shiftDate(employee, config, now)) {
+  if (isOffDay(employee, date)) return 'Off';
   const window = shiftWindow(employee, config, date);
   if (!window) return 'ShiftNotSet';
   if (+now < window.start) return 'Scheduled';
@@ -67,6 +70,7 @@ export function reportRange(params, now = new Date()) {
 
 // Exactly 15 minutes early is dashboard-only; compare seconds before rounding.
 export function earlyCheckoutPolicy(employee, config, date, now = new Date()) {
+  if (isOffDay(employee, date)) return { policyVersion: 'early-checkout-v1', earlySeconds: 0, earlyMinutes: 0, whatsappRequired: false, notificationState: 'scheduled-off' };
   const window = shiftWindow(employee, config, date);
   if (!window) return { policyVersion: 'early-checkout-v1', earlySeconds: 0, earlyMinutes: 0, whatsappRequired: false, notificationState: 'shift-not-set' };
   const earlySeconds = Math.max(0, Math.ceil((window.end - +now) / 1000));

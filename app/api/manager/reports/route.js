@@ -21,6 +21,6 @@ export async function GET(request) {
       const e = people.get(a.employeeId);
       return { employeeId: a.employeeId, name: a.employeeName || e?.name || a.employeeId, department: e?.department || '', date: a.date, status: a.status, checkInTime: a.checkIn?.time || null, checkOutTime: a.checkOut?.time || null, earlyCheckout: a.earlyCheckout || null };
     });
-    return NextResponse.json({ range, rows, summary, employees: employees.map(e => ({employeeId: e.employeeId, name: e.name})), note: 'Recorded attendance only. Missing dates are not automatically counted as absence; no holiday or working-day calendar is configured.', generatedAt: new Date() }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ range, rows, summary, employees: employees.map(e => ({employeeId: e.employeeId, name: e.name})), note: 'Recorded attendance only. Missing dates are not automatically counted as absence; weekly off days and calendar exceptions are shown in employee schedules.', generatedAt: new Date() }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) { return NextResponse.json({ error: e.name === 'Error' ? e.message : 'Could not load report.' }, { status: 400 }); }
 }

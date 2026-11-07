@@ -9,8 +9,8 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-const STATUS_BADGE = { Scheduled: 'badge-info', Pending: 'badge-info', ShiftNotSet: 'badge-warning', OnTime: 'badge-success', Late: 'badge-warning', HalfDay: 'badge-warning', Absent: 'badge-danger', Leave: 'badge-info' };
-const STATUS_LABEL = { Scheduled: 'Shift not started', Pending: 'Awaiting check-in', ShiftNotSet: 'Shift not set', OnTime: 'On time', Late: 'Late', HalfDay: 'Half day', Absent: 'Absent', Leave: 'On leave' };
+const STATUS_BADGE = { Off: 'badge-info', Scheduled: 'badge-info', Pending: 'badge-info', ShiftNotSet: 'badge-warning', OnTime: 'badge-success', Late: 'badge-warning', HalfDay: 'badge-warning', Absent: 'badge-danger', Leave: 'badge-info' };
+const STATUS_LABEL = { Off: 'Day off', Scheduled: 'Shift not started', Pending: 'Awaiting check-in', ShiftNotSet: 'Shift not set', OnTime: 'On time', Late: 'Late', HalfDay: 'Half day', Absent: 'Absent', Leave: 'On leave' };
 const LOCATION_LABEL = { office: 'Office', airport: 'Airport', quarantine: 'Quarantine (AQD)', out_of_range: 'Out of range', not_configured: 'Not set up' };
 
 function LocationCell({ label, distance, assignedLocation }) {
@@ -155,8 +155,8 @@ export default function ManagerPage() {
           <p className="text-sm text-slate">{data.date} · {data.rows.length} employees · {needsReview.length} photos to review</p>
         </div>
 
-        <div className="attendance-summary grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-          {['OnTime', 'Late', 'Pending', 'Scheduled', 'Absent', 'Leave'].map((status) => {
+        <div className="attendance-summary grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
+          {['OnTime', 'Late', 'Pending', 'Scheduled', 'Absent', 'Leave', 'Off'].map((status) => {
             const count = data.rows.filter((r) => r.status === status).length;
             return (
               <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)} aria-pressed={statusFilter === status} className={`text-center py-4 ${statusFilter === status ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-mist'}`}>

@@ -2,7 +2,7 @@ import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
 import { Employee, Attendance } from '@/app/lib/db/models';
-import { shiftDate, dayPKT, addDays } from '@/app/lib/attendance-policy';
+import { missingStatus, shiftDate, dayPKT, addDays } from '@/app/lib/attendance-policy';
 import { AttendanceConfig } from '@/app/lib/db/models';
 import { getSession } from '@/app/lib/auth/jwt';
 
@@ -40,7 +40,7 @@ export async function GET() {
       status: today.status,
       checkInTime: today.checkIn?.time || null,
       checkOutTime: today.checkOut?.time || null,
-    } : { checkedIn: false, checkedOut: false, status: null },
+    } : { checkedIn: false, checkedOut: false, status: missingStatus(employee, config) },
   });
 }
 

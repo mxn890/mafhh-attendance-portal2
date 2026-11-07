@@ -147,7 +147,7 @@ export default function HomePage() {
 
       <main className="max-w-sm mx-auto px-4 py-6 pb-24">
         <h1 className="font-display text-2xl font-semibold text-ink mb-1">My attendance</h1>
-        <p className="text-sm text-slate mb-5">{me.today.checkedOut ? 'You have finished for today.' : me.today.checkedIn ? 'Check out when your shift ends.' : 'Check in when you start your shift.'}</p>
+        <p className="text-sm text-slate mb-5">{me.today.checkedOut ? 'You have finished for today.' : me.today.checkedIn ? 'Check out when your shift ends.' : me.today.status === 'Off' ? 'Today is your scheduled day off. You can still record attendance if you are working.' : 'Check in when you start your shift.'}</p>
         {locationStatus === 'denied' && (
           <div className="bg-signal-light border border-signal/30 px-4 py-3 mb-4">
             <p className="text-sm text-signal font-medium">Location is turned off</p>
@@ -193,7 +193,7 @@ export default function HomePage() {
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm text-slate">Status</span>
                   <span className={me.today.status === 'OnTime' ? 'badge-success' : me.today.status === 'Leave' ? 'badge-info' : 'badge-warning'}>
-                    {{OnTime:'On time', HalfDay:'Half day', Leave:'On leave'}[me.today.status] || me.today.status}
+                    {{Off:'Day off', OnTime:'On time', HalfDay:'Half day', Leave:'On leave'}[me.today.status] || me.today.status}
                   </span>
                 </div>
               )}

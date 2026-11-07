@@ -12,6 +12,8 @@ const employeeSchema = new mongoose.Schema({
   shift_timing: String,
   shiftStart: String,
   shiftEnd: String,
+  weeklyOffDays: { type: [Number], default: () => [0] },
+  workDateOverrides: { type: [{ date: String, isOff: Boolean, _id: false }], default: () => [] },
   authVersion: { type: Number, default: 0 },
   profile_photo: String,
 

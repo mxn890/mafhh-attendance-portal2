@@ -95,7 +95,7 @@ await test('Missing assigned pin returns configuration error instead of out-of-r
 const employees=await moduleOf('app/api/manager/employees/route.js');
 await test('Employee cannot access manager roster or add accounts',async()=>{assert.equal((await employees.GET()).status,403);assert.equal((await employees.POST(req({}))).status,403);});
 session={userId:'CEO',role:'manager'};
-await test('Manager can add employee, password matches real bcrypt',async()=>{const r=await employees.POST(req({employeeId:'MAFHH-999',name:'Added Test',department:'Test',shiftStart:'21:00',shiftEnd:'06:00',assignedLocation:'either'}));assert.equal(r.status,201);const p=data.employees.find(e=>e.employeeId==='MAFHH-999');assert.equal(await bcrypt.compare(r.body.tempPassword,p.password),true);assert.equal(p.mustChangePassword,true);});
+await test('Manager can add employee, password matches real bcrypt',async()=>{const r=await employees.POST(req({employeeId:'MAFHH-999',name:'Added Test',department:'Test',shiftStart:'21:00',shiftEnd:'06:00',assignedLocation:'either'}));assert.equal(r.status,201);const p=data.employees.find(e=>e.employeeId==='MAFHH-999');assert.equal(await bcrypt.compare(r.body.tempPassword,p.password),true);assert.equal(p.mustChangePassword,true);assert.equal(p.weeklyOffDays[0],0);assert.equal(p.workDateOverrides.length,0);});
 await test('Manager cannot add duplicate ID or invalid shift',async()=>{assert.equal((await employees.POST(req({employeeId:'MAFHH-999',name:'A',department:'B',shiftStart:'21:00',shiftEnd:'06:00'}))).status,409);assert.equal((await employees.POST(req({name:'A',department:'B',shiftStart:'99:00',shiftEnd:'06:00'}))).status,400);});
 await test('Remove account preserves historical data and increments session version',async()=>{data.attendances.push({employeeId:'MAFHH-999',date:'2026-10-01',status:'Late'});const r=await employees.PATCH(req({employeeId:'MAFHH-999',action:'deactivate'}));assert.equal(r.status,200);const e=data.employees.find(e=>e.employeeId==='MAFHH-999');assert.equal(e.status,'inactive');assert.equal(e.authVersion,1);assert.equal(data.attendances.length,1);});
 await test('CEO / manager account cannot be removed through employee manager',async()=>{data.employees.push({_id:'ceo',employeeId:'CEO',attendanceRole:'manager',status:'active'});assert.equal((await employees.PATCH(req({employeeId:'CEO',action:'deactivate'}))).status,403);});
@@ -200,6 +200,50 @@ await test('Actual checkout stores atomic notification intent; duplicate cannot 
  session={userId:'CEO',role:'manager'};
  const view=await today.GET();assert.equal(view.body.rows.find(x=>x.employeeId===emp.employeeId).earlyCheckout.whatsappRequired,true);
  const report=await reports.GET(req({},'days=7'));assert.equal(report.body.rows[0].earlyCheckout.whatsappRequired,true);
+});
+const C=await moduleOf('app/lib/work-calendar.js');
+await test('Existing and new employees default to Sunday off without a database migration',()=>{
+ assert.equal(C.isOffDay({},'2026-11-08'),true);assert.equal(C.isOffDay({},'2026-11-09'),false);
+ assert.equal(C.calendarFields({}).weeklyOffDays[0],0);
+});
+await test('Wednesday weekly off makes Sunday working and supports date-specific swaps',()=>{
+ const e={weeklyOffDays:[3],workDateOverrides:[{date:'2026-11-08',isOff:true},{date:'2026-11-11',isOff:false}]};
+ assert.equal(C.isOffDay({weeklyOffDays:[3]},'2026-11-08'),false);
+ assert.equal(C.isOffDay(e,'2026-11-08'),true);assert.equal(C.isOffDay(e,'2026-11-11'),false);assert.equal(C.isOffDay(e,'2026-11-18'),true);
+});
+await test('Off days cannot be marked missing/late or generate early checkout intent',()=>{
+ const e={shift_timing:'9AM - 6PM'};const now=new Date('2026-11-08T10:00:00Z');
+ assert.equal(P.missingStatus(e,{},now),'Off');assert.equal(P.checkInStatus(e,{},now),'OnTime');assert.equal(P.earlyCheckoutPolicy(e,{},'2026-11-08',now).whatsappRequired,false);
+ assert.equal(P.checkInStatus({...e,weeklyOffDays:[3]}, {},now),'Late');
+});
+await test('Saturday overnight shift remains a work shift on Sunday morning',()=>{
+ const e={shift_timing:'9PM - 6AM'},now=new Date('2026-11-08T00:30:00Z');
+ assert.equal(P.shiftDate(e,{},now),'2026-11-07');assert.notEqual(P.missingStatus(e,{},now),'Off');
+ assert.equal(P.earlyCheckoutPolicy(e,{},'2026-11-07',now).whatsappRequired,true);
+});
+await test('Reject malformed days, impossible dates, duplicates and nonboolean overrides',()=>{
+ for(const weeklyOffDays of [[7],['0'],[0,0],null]) assert.throws(()=>C.calendarFields({weeklyOffDays}));
+ for(const workDateOverrides of [[{date:'2026-02-30',isOff:true}],[{date:'2026-11-08',isOff:'yes'}],[{date:'2026-11-08',isOff:true},{date:'2026-11-08',isOff:false}]]) assert.throws(()=>C.calendarFields({workDateOverrides}));
+ assert.equal(C.validWorkDate('2028-02-29'),true);assert.equal(C.isOffDay({weeklyOffDays:[]},'2026-11-08'),false);
+});
+await test('Manager schedule update persists and unrelated edits retain calendar; employee cannot change it',async()=>{
+ const route=await moduleOf('app/api/manager/employees/route.js');session={userId:'CEO',role:'manager'};
+ const body={employeeId:emp.employeeId,name:emp.name,department:'Operations',shiftStart:'09:00',shiftEnd:'18:00',assignedLocation:'quarantine'};
+ const before=clone(data.attendances);
+ assert.equal((await route.PATCH(req({...body,weeklyOffDays:[3],workDateOverrides:[{date:'2026-11-08',isOff:true}]}))).status,200);
+ assert.equal(emp.weeklyOffDays[0],3);assert.equal(emp.workDateOverrides[0].isOff,true);
+ assert.equal((await route.PATCH(req(body))).status,200);assert.equal(emp.weeklyOffDays[0],3);assert.equal(emp.workDateOverrides.length,1);
+ assert.equal((await route.PATCH(req({...body,weeklyOffDays:[8]}))).status,400);assert.equal(emp.weeklyOffDays[0],3);
+ session={userId:emp.employeeId,role:'employee'};assert.equal((await route.PATCH(req({...body,weeklyOffDays:[0]}))).status,403);
+ assert.deepEqual(data.attendances,before);
+});
+await test('Off day status reaches both manager and employee views; actual attendance stays authoritative',async()=>{
+ clock='2026-11-08T10:00:00Z';emp.weeklyOffDays=[0];emp.workDateOverrides=[];data.attendances.length=0;
+ session={userId:'CEO',role:'manager'};const managerView=await today.GET();assert.equal(managerView.body.rows.find(x=>x.employeeId===emp.employeeId).status,'Off');
+ const me=await moduleOf('app/api/me/route.js');session={userId:emp.employeeId,role:'employee'};assert.equal((await me.GET()).body.today.status,'Off');
+ data.attendances.push({_id:'off-work',employeeId:emp.employeeId,date:'2026-11-08',status:'OnTime',checkIn:{time:new Date(clock)}});
+ assert.equal((await me.GET()).body.today.status,'OnTime');
+ session={userId:'CEO',role:'manager'};assert.equal((await today.GET()).body.rows.find(x=>x.employeeId===emp.employeeId).status,'OnTime');
 });
 console.log('\nATTENDANCE REGRESSION TESTS:',passed,'PASSED (in-memory data store, real handlers/policy/bcrypt; no live records changed).');
 })().catch(e=>{console.error(e);process.exitCode=1;});
