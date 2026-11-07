@@ -245,5 +245,32 @@ await test('Off day status reaches both manager and employee views; actual atten
  assert.equal((await me.GET()).body.today.status,'OnTime');
  session={userId:'CEO',role:'manager'};assert.equal((await today.GET()).body.rows.find(x=>x.employeeId===emp.employeeId).status,'OnTime');
 });
+const D=await moduleOf('app/lib/daily-report.js');
+await test('Daily report includes absent, present, leave and off employees without writing records',()=>{
+ const people=[{employeeId:'a',name:'A',status:'active',shift_timing:'9AM - 6PM'}, {employeeId:'b',name:'B',status:'active',shift_timing:'9AM - 6PM'}, {employeeId:'c',name:'C',status:'active',weeklyOffDays:[6]}, {employeeId:'d',name:'D',status:'active'}];
+ const rows=D.dailyReportRows(people,[{employeeId:'a',status:'Late',checkIn:{time:new Date('2026-11-07T06:00Z')}},{employeeId:'d',status:'Leave'}],'2026-11-07',{},new Date('2026-11-07T14:00Z'));
+ assert.equal(rows.length,4);assert.equal(rows[0].present,true);assert.equal(rows[0].status,'Late');assert.equal(rows[1].status,'Absent');assert.equal(rows[2].status,'Off');assert.equal(rows[3].status,'Leave');
+});
+await test('Daily report never marks a future/in-progress shift or not-yet-joined employee absent',()=>{
+ const now=new Date('2026-11-07T06:00Z');const rows=D.dailyReportRows([{employeeId:'a',status:'active',shift_timing:'9AM - 6PM'},{employeeId:'b',status:'active',shift_timing:'3PM - 11PM'},{employeeId:'c',status:'active',createdAt:new Date('2026-11-08T00:00Z')}],[],'2026-11-07',{},now);
+ assert.equal(rows[0].status,'Pending');assert.equal(rows[1].status,'Scheduled');assert.equal(rows[2].status,'NotJoined');
+ assert.equal(D.dailyReportRows([{employeeId:'a',status:'active',shift_timing:'9AM - 6PM',weeklyOffDays:[]}],[],'2026-11-09',{},now)[0].status,'Scheduled');
+});
+await test('Daily report handles overnight end boundaries and removed employees with records',()=>{
+ const people=[{employeeId:'a',status:'active',shift_timing:'9PM - 6AM'},{employeeId:'b',status:'inactive'},{employeeId:'c',status:'inactive'}];
+ const rows=D.dailyReportRows(people,[{employeeId:'b',status:'OnTime',checkIn:{time:new Date()}}],'2026-11-07',{},new Date('2026-11-08T00:45Z'));
+ assert.equal(rows.length,2);assert.equal(rows[0].status,'Pending');assert.equal(rows[1].present,true);
+ assert.equal(D.dailyReportRows(people,[],'2026-11-07',{},new Date('2026-11-08T01:00:01Z'))[0].status,'Absent');
+ assert.throws(()=>D.dailyRange('2026-02-30'));assert.throws(()=>D.dailyRange(''));assert.equal(D.dailyRange('2026-12-31').end,'2027-01-01');
+});
+await test('Real daily report route shows the full roster, exports statuses and enforces manager access',async()=>{
+ clock='2026-11-08T14:00:00Z';session={userId:'CEO',role:'manager'};const before=clone(data.attendances);
+ const r=await reports.GET(req({},'date=2026-11-08'));
+ assert.equal(r.status,200);assert.equal(r.body.mode,'daily');assert.equal(r.body.rows.length,data.employees.filter(e=>e.status==='active'||data.attendances.some(a=>a.employeeId===e.employeeId&&a.date==='2026-11-08')).length);
+ assert.equal(r.body.summary.Present,1);assert.ok(r.body.rows.some(e=>e.status==='Off'));assert.deepEqual(data.attendances,before);
+ const one=await reports.GET(req({},'date=2026-11-08&employeeId='+emp.employeeId));assert.equal(one.body.rows.length,1);
+ assert.equal((await reports.GET(req({},'date=bad'))).status,400);
+ session={userId:emp.employeeId,role:'employee'};assert.equal((await reports.GET(req({},'date=2026-11-08'))).status,403);
+});
 console.log('\nATTENDANCE REGRESSION TESTS:',passed,'PASSED (in-memory data store, real handlers/policy/bcrypt; no live records changed).');
 })().catch(e=>{console.error(e);process.exitCode=1;});
