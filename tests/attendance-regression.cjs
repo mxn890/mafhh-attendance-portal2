@@ -272,5 +272,63 @@ await test('Real daily report route shows the full roster, exports statuses and 
  assert.equal((await reports.GET(req({},'date=bad'))).status,400);
  session={userId:emp.employeeId,role:'employee'};assert.equal((await reports.GET(req({},'date=2026-11-08'))).status,403);
 });
+await test('Legacy shifts remain the default on all seven days; custom Tuesday is isolated',()=>{
+ const base={shiftStart:'09:00',shiftEnd:'17:00',weeklyOffDays:[]};
+ for(let i=0;i<7;i++){const date=P.addDays('2026-11-08',i);assert.equal(P.parseShift(base,{},date).end,1020);}
+ const e={...base,weeklyShifts:[{day:2,startTime:'09:00',endTime:'16:00'}]};
+ assert.equal(P.parseShift(e,{},'2026-11-09').end,1020);assert.equal(P.parseShift(e,{},'2026-11-10').end,960);assert.equal(P.parseShift(e,{},'2026-11-11').end,1020);
+ assert.equal(P.parseShift(e).end,1020);assert.equal(P.shiftLabel(e,{},'2026-11-10'),'09:00 – 16:00');
+});
+await test('Weekday start controls late grace and shorter end controls daily absence',()=>{
+ const e={status:'active',employeeId:'weekday',shiftStart:'09:00',shiftEnd:'17:00',weeklyShifts:[{day:2,startTime:'10:00',endTime:'15:00'}]};
+ assert.equal(P.checkInStatus(e,{},new Date('2026-11-10T05:30:00Z')),'OnTime');assert.equal(P.checkInStatus(e,{},new Date('2026-11-10T05:30:01Z')),'Late');
+ const now=new Date('2026-11-10T10:00:01Z');assert.equal(P.missingStatus(e,{},now),'Absent');
+ assert.equal(D.dailyReportRows([e],[],'2026-11-10',{},now)[0].status,'Absent');
+ assert.equal(P.missingStatus(e,{},new Date('2026-11-09T10:00:01Z')),'Pending');
+});
+await test('Weekday checkout compares exact fifteen-minute boundary to that weekday end',()=>{
+ const e={shiftStart:'09:00',shiftEnd:'17:00',weeklyShifts:[{day:2,startTime:'09:00',endTime:'16:00'}]};
+ const a=P.earlyCheckoutPolicy(e,{},'2026-11-10',new Date('2026-11-10T10:45:00Z'));assert.equal(a.whatsappRequired,false);assert.equal(a.earlySeconds,900);assert.equal(new Date(a.shiftEnd).toISOString(),'2026-11-10T11:00:00.000Z');
+ assert.equal(P.earlyCheckoutPolicy(e,{},'2026-11-10',new Date('2026-11-10T10:44:59Z')).whatsappRequired,true);
+ assert.equal(P.earlyCheckoutPolicy(e,{},'2026-11-10',new Date('2026-11-10T11:00:00Z')).earlySeconds,0);
+});
+await test('Night-shift rollover reads the previous weekday even if today uses daytime hours',()=>{
+ const e={shiftStart:'09:00',shiftEnd:'17:00',weeklyShifts:[{day:1,startTime:'22:00',endTime:'06:00'},{day:2,startTime:'10:00',endTime:'16:00'}]};
+ const now=new Date('2026-11-10T00:45:00Z');assert.equal(P.shiftDate(e,{},now),'2026-11-09');
+ assert.equal(new Date(P.shiftWindow(e,{},'2026-11-09').end).toISOString(),'2026-11-10T01:00:00.000Z');
+ assert.equal(P.earlyCheckoutPolicy(e,{},'2026-11-09',now).whatsappRequired,false);
+ assert.equal(P.shiftDate(e,{},new Date('2026-11-10T01:00:01Z')),'2026-11-10');
+ assert.equal(P.shiftLabel(e,{},'2026-11-09'),'22:00 – 06:00 (+1 day)');
+ const reverse={...e,weeklyShifts:[{day:2,startTime:'22:00',endTime:'06:00'}]};assert.equal(P.shiftDate(reverse,{},now),'2026-11-10');
+});
+await test('Weekly off and date exceptions outrank weekday custom times',()=>{
+ const e={shiftStart:'09:00',shiftEnd:'17:00',weeklyOffDays:[2],weeklyShifts:[{day:2,startTime:'10:00',endTime:'16:00'}]};
+ const now=new Date('2026-11-10T10:00Z');assert.equal(P.missingStatus(e,{},now),'Off');assert.equal(P.shiftLabel(e,{},'2026-11-10'),'Off');assert.equal(P.earlyCheckoutPolicy(e,{},'2026-11-10',now).whatsappRequired,false);
+ e.workDateOverrides=[{date:'2026-11-10',isOff:false}];assert.equal(P.shiftLabel(e,{},'2026-11-10'),'10:00 – 16:00');assert.equal(P.missingStatus(e,{},now),'Pending');
+ const night={...e,weeklyOffDays:[1],weeklyShifts:[{day:1,startTime:'22:00',endTime:'06:00'}]};assert.equal(P.shiftDate(night,{},new Date('2026-11-10T00:00Z')),'2026-11-10');
+});
+await test('Custom shift validation rejects duplicates, missing halves and invalid clocks',()=>{
+ const good={day:2,startTime:'09:00',endTime:'16:00'};
+ for(const rows of [null,[{...good,day:7}],[{...good,day:'2'}],[good,good],[{...good,endTime:'09:00'}],[{...good,startTime:'24:00'}],[{...good,endTime:''}],[{...good,endTime:'16:60'}]])assert.throws(()=>P.weeklyShiftFields({weeklyShifts:rows}));
+ assert.equal(P.weeklyShiftFields({weeklyShifts:[good]},{weeklyShifts:[]}).weeklyShifts[0].endTime,'16:00');
+ assert.equal(P.weeklyShiftFields({}, {weeklyShifts:[good]}).weeklyShifts.length,1);assert.equal(P.weeklyShiftFields({weeklyShifts:[]},{weeklyShifts:[good]}).weeklyShifts.length,0);
+});
+await test('Manager persists weekday hours; unrelated edits preserve them; employees cannot edit',async()=>{
+ const route=await moduleOf('app/api/manager/employees/route.js');session={userId:'CEO',role:'manager'};
+ const body={employeeId:emp.employeeId,name:emp.name,department:'Operations',shiftStart:'09:00',shiftEnd:'17:00',assignedLocation:'either'};
+ const schedule=[{day:2,startTime:'09:00',endTime:'16:00'}],before=clone(data.attendances);
+ assert.equal((await route.PATCH(req({...body,weeklyShifts:schedule,weeklyOffDays:[0],workDateOverrides:[]}))).status,200);assert.equal(emp.weeklyShifts[0].endTime,'16:00');
+ assert.equal((await route.PATCH(req(body))).status,200);assert.equal(emp.weeklyShifts.length,1);assert.deepEqual(data.attendances,before);
+ assert.equal((await route.PATCH(req({...body,weeklyShifts:[{day:2,startTime:'09:00',endTime:'99:00'}]}))).status,400);assert.equal(emp.weeklyShifts[0].endTime,'16:00');
+ session={userId:emp.employeeId,role:'employee'};assert.equal((await route.PATCH(req({...body,weeklyShifts:[]}))).status,403);
+});
+await test('Real check-in/checkout use weekday times, persist alert flag and show correct shift',async()=>{
+ emp.status='active';emp.mustChangePassword=false;emp.isEnrolled=true;emp.faceDescriptor=face;emp.assignedLocation='either';emp.weeklyOffDays=[0];emp.workDateOverrides=[];emp.weeklyShifts=[{day:2,startTime:'10:00',endTime:'16:00'}];
+ data.attendances.length=0;session={userId:emp.employeeId,role:'employee'};clock='2026-11-10T05:30:00Z';assert.equal((await checkin.POST(req(valid))).status,200);assert.equal(data.attendances[0].status,'OnTime');
+ assert.equal((await me.GET()).body.shift_timing,'10:00 – 16:00');
+ session={userId:'CEO',role:'manager'};assert.equal((await today.GET()).body.rows.find(x=>x.employeeId===emp.employeeId).shift_timing,'10:00 – 16:00');
+ clock='2026-11-10T10:45:00Z';session={userId:emp.employeeId,role:'employee'};assert.equal((await checkout.POST(req(valid))).status,200);assert.equal(data.attendances[0].earlyCheckout.whatsappRequired,false);
+ delete data.attendances[0].checkOut;clock='2026-11-10T10:44:59Z';assert.equal((await checkout.POST(req(valid))).status,200);assert.equal(data.attendances[0].earlyCheckout.whatsappRequired,true);assert.equal(data.attendances[0].earlyCheckout.notificationState,'pending');
+});
 console.log('\nATTENDANCE REGRESSION TESTS:',passed,'PASSED (in-memory data store, real handlers/policy/bcrypt; no live records changed).');
 })().catch(e=>{console.error(e);process.exitCode=1;});

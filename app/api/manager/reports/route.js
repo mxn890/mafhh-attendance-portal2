@@ -16,7 +16,7 @@ export async function GET(request) {
     const employeeId = request.nextUrl.searchParams.get('employeeId');
     if (employeeId && !/^[A-Za-z0-9_-]{1,64}$/.test(employeeId)) throw Error('Invalid employee ID.');
     await connectDB();
-    const employees = await Employee.find(employeeId ? { employeeId } : { employeeId: { $type: 'string' } }).select('employeeId name department status createdAt shift_timing shiftStart shiftEnd weeklyOffDays workDateOverrides').sort({ name: 1 }).lean();
+    const employees = await Employee.find(employeeId ? { employeeId } : { employeeId: { $type: 'string' } }).select('employeeId name department status createdAt shift_timing shiftStart shiftEnd weeklyOffDays workDateOverrides weeklyShifts').sort({ name: 1 }).lean();
     const people = new Map(employees.map(e => [e.employeeId, e]));
     const records = await Attendance.find({ employeeId: { $in: [...people.keys()] }, date: { $gte: range.start, $lt: range.end } }).select('employeeId employeeName date status checkIn.time checkOut.time earlyCheckout').sort({ date: -1, employeeId: 1 }).lean();
     const summary = Object.fromEntries((daily ? ['Present', 'Late', 'Absent', 'Leave', 'Off', 'Pending', 'Scheduled', 'ShiftNotSet', 'NotJoined'] : ['OnTime', 'Late', 'HalfDay', 'Absent', 'Leave']).map(k => [k, 0]));

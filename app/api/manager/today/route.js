@@ -2,7 +2,7 @@ import { getAttendanceConfig } from '@/app/lib/attendance-config';
 import { NextResponse } from 'next/server';
 import connectDB from '@/app/lib/db/connect';
 import { Employee, Attendance } from '@/app/lib/db/models';
-import { dayPKT, addDays, shiftDate, missingStatus } from '@/app/lib/attendance-policy';
+import { dayPKT, addDays, shiftDate, missingStatus, shiftLabel } from '@/app/lib/attendance-policy';
 import { getSession } from '@/app/lib/auth/jwt';
 
 function todayPKT() {
@@ -30,7 +30,7 @@ export async function GET() {
       employeeId: e.employeeId,
       name: e.name,
       department: e.department,
-      shift_timing: e.shift_timing,
+      shift_timing: shiftLabel(e, config, rec?.date || shiftDate(e, config, now)),
       isEnrolled: e.isEnrolled,
       assignedLocation: e.assignedLocation || 'either',
       status: rec?.status || missingStatus(e, config, now),

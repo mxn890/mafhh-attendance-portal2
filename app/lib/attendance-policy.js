@@ -1,5 +1,5 @@
 // Shared server policy. All attendance dates and shift boundaries use Pakistan time.
-import { isOffDay } from './work-calendar';
+import { isOffDay, validWorkDate } from './work-calendar';
 export const GRACE_MINUTES = 30;
 export const LOCATION_RADIUS_METRES = 1000;
 const DAY = 86400000;
@@ -13,7 +13,25 @@ export function clockMinutes(value) {
   if (m[3]) h = h % 12 + (m[3] === 'PM' ? 12 : 0);
   return h * 60 + min;
 }
-export function parseShift(employee, config = {}) {
+// Missing weekday entries inherit the employee's existing default shift.
+export function weeklyShiftFields(body, existing = {}) {
+  const rows = body.weeklyShifts === undefined ? (existing.weeklyShifts || []) : body.weeklyShifts;
+  if (!Array.isArray(rows) || rows.length > 7) throw Error('Use at most one custom shift per weekday.');
+  const seen = new Set();
+  return { weeklyShifts: rows.map(row => {
+    if (!row || !Number.isInteger(row.day) || row.day < 0 || row.day > 6 || seen.has(row.day)) throw Error('Choose each weekday only once.');
+    const {startTime, endTime} = row;
+    if (typeof startTime !== 'string' || typeof endTime !== 'string' || !/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || clockMinutes(startTime) == null || clockMinutes(endTime) == null || startTime === endTime) throw Error('Custom shifts need valid, different start and end times.');
+    seen.add(row.day); return {day: row.day, startTime, endTime};
+  }).sort((a,b) => a.day - b.day) };
+}
+export function parseShift(employee, config = {}, date) {
+  const weekday = validWorkDate(date) ? new Date(date + 'T00:00:00Z').getUTCDay() : null;
+  const custom = weekday == null ? null : employee?.weeklyShifts?.find(row => row.day === weekday);
+  if (custom) {
+    const start = clockMinutes(custom.startTime), end = clockMinutes(custom.endTime);
+    return start == null || end == null || start === end ? null : {start, end, overnight: end < start};
+  }
   const text = String(employee?.shift_timing || '').trim().replace(/(\d)\s*-\s*(AM|PM)/gi, '$1$2');
   const pieces = text.split(/\s*[-–—]\s*|\s+to\s+/i);
   const start = clockMinutes(employee?.shiftStart || pieces[0]);
@@ -25,16 +43,24 @@ export function parseShift(employee, config = {}) {
   return { start: a, end: b, overnight: b < a };
 }
 export function shiftDate(employee, config = {}, now = new Date()) {
-  const shift = parseShift(employee, config);
-  const day = dayPKT(now), minute = (+now - Date.parse(day + 'T00:00:00+05:00')) / 60000;
-  // After midnight, an overnight shift belongs to its starting date.
-  return shift?.overnight && minute <= shift.end ? addDays(day, -1) : day;
+  const day = dayPKT(now), previous = addDays(day, -1);
+  const priorShift = parseShift(employee, config, previous);
+  const minute = (+now - Date.parse(day + 'T00:00:00+05:00')) / 60000;
+  // Use the PREVIOUS weekday's hours for its after-midnight portion.
+  return priorShift?.overnight && !isOffDay(employee, previous) && minute <= priorShift.end ? previous : day;
 }
 export function shiftWindow(employee, config = {}, date = dayPKT()) {
-  const shift = parseShift(employee, config);
+  const shift = parseShift(employee, config, date);
   if (!shift) return null;
   const midnight = Date.parse(date + 'T00:00:00+05:00');
   return { start: midnight + shift.start * 60000, end: midnight + (shift.end + (shift.overnight ? 1440 : 0)) * 60000 };
+}
+export function shiftLabel(employee, config = {}, date = dayPKT()) {
+  if (isOffDay(employee, date)) return 'Off';
+  const shift = parseShift(employee, config, date);
+  if (!shift) return 'Shift not set';
+  const clock = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+  return clock(shift.start) + ' – ' + clock(shift.end) + (shift.overnight ? ' (+1 day)' : '');
 }
 export function checkInStatus(employee, config, now, date = shiftDate(employee, config, now)) {
   if (isOffDay(employee, date)) return 'OnTime';

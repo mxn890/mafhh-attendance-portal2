@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import connectDB from '@/app/lib/db/connect';
 import { Employee } from '@/app/lib/db/models';
 import { getSession } from '@/app/lib/auth/jwt';
-import { parseShift, clockMinutes } from '@/app/lib/attendance-policy';
+import { parseShift, clockMinutes, weeklyShiftFields } from '@/app/lib/attendance-policy';
 import { calendarFields } from '@/app/lib/work-calendar';
 import { tempPassword } from '@/app/lib/temp-password';
 export const dynamic = 'force-dynamic';
@@ -22,14 +22,14 @@ export async function GET() {
   const s = await getSession();
   if (!manager(s)) return fail('Manager access required.', 403);
   await connectDB();
-  const employees = await Employee.find({ employeeId: { $type: 'string' } }).select('employeeId name department shift_timing shiftStart shiftEnd status attendanceRole assignedLocation isEnrolled weeklyOffDays workDateOverrides').sort({ name: 1 }).lean();
+  const employees = await Employee.find({ employeeId: { $type: 'string' } }).select('employeeId name department shift_timing shiftStart shiftEnd status attendanceRole assignedLocation isEnrolled weeklyOffDays workDateOverrides weeklyShifts').sort({ name: 1 }).lean();
   return NextResponse.json({ employees }, { headers: { 'Cache-Control': 'no-store' } });
 }
 export async function POST(request) {
   const s = await getSession();
   if (!manager(s)) return fail('Manager access required.', 403);
   try {
-    const body = await request.json(), data = { ...fields(body), ...calendarFields(body) };
+    const body = await request.json(), data = { ...fields(body), ...calendarFields(body), ...weeklyShiftFields(body) };
     await connectDB();
     let employeeId = String(body.employeeId || '').trim().toUpperCase();
     if (employeeId && !/^MAFHH-\d{3,6}$/.test(employeeId)) return fail('ID must be MAFHH- followed by 3 to 6 digits, or leave it blank.');
@@ -60,7 +60,7 @@ export async function PATCH(request) {
       const status = body.action === 'deactivate' ? 'inactive' : 'active';
       if (employee.status !== status) await Employee.updateOne({ _id: employee._id }, { $set: { status, updatedAt: new Date() }, $inc: { authVersion: 1 } });
     } else {
-      const data = { ...fields(body), ...calendarFields(body, employee) };
+      const data = { ...fields(body), ...calendarFields(body, employee), ...weeklyShiftFields(body, employee) };
       await Employee.updateOne({ _id: employee._id }, { $set: { ...data, updatedAt: new Date() } }, { runValidators: true });
     }
     return NextResponse.json({ ok: true });
